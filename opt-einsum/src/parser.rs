@@ -1,9 +1,14 @@
 //! Parse einsum operator, e.g. `ij,jk->ik`
+//!
+//! These parsers are implemented using [nom](https://github.com/Geal/nom),
+//! and corresponding EBNF-like schema are written in each document page.
+//!
 
 use nom::{
     branch::*, bytes::complete::*, character::complete::*, multi::*, sequence::*, IResult, Parser,
 };
 
+/// index = `a` | `b` | `c` | `d` | `e` | `f` | `g` | `h` | `i` | `j` | `k` | `l` |`m` | `n` | `o` | `p` | `q` | `r` | `s` | `t` | `u` | `v` | `w` | `x` |`y` | `z`;
 pub fn index(input: &str) -> IResult<&str, char> {
     satisfy(|c| matches!(c, 'a'..='z'))(input)
 }
@@ -11,6 +16,7 @@ pub fn index(input: &str) -> IResult<&str, char> {
 /// Indices appearing in einsum operator, e.g. `ij`
 pub type Indices = Vec<char>;
 
+/// indices = { [index] };
 pub fn indices(input: &str) -> IResult<&str, Indices> {
     many0(alt((index.map(|c| Some(c)), multispace1.map(|_| None))))
         .map(|chars| chars.into_iter().flatten().collect())
@@ -26,6 +32,7 @@ pub struct Operator {
     pub output: Indices,
 }
 
+/// operator = [indices] {`,` [indices]} `->` [indices]
 pub fn operator(input: &str) -> IResult<&str, Operator> {
     let (input, _head) = multispace0(input)?;
     let (input, inputs) = separated_list1(char(','), indices)(input)?;
