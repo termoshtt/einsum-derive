@@ -1,44 +1,61 @@
-//! Parse einsum operator, e.g. `ij,jk->ik`
+//! Parse einsum subscripts, e.g. `ij,jk->ik`
 //!
 //! These parsers are implemented using [nom](https://github.com/Geal/nom),
 //! and corresponding EBNF-like schema are written in each document page.
 //!
 
 use nom::{
-    branch::*, bytes::complete::*, character::complete::*, multi::*, sequence::*, IResult, Parser,
+    branch::*, bytes::complete::*, character::complete::*, combinator::*, multi::*, sequence::*,
+    IResult, Parser,
 };
 
 /// index = `a` | `b` | `c` | `d` | `e` | `f` | `g` | `h` | `i` | `j` | `k` | `l` |`m` | `n` | `o` | `p` | `q` | `r` | `s` | `t` | `u` | `v` | `w` | `x` |`y` | `z`;
-pub fn index(input: &str) -> IResult<&str, char> {
-    satisfy(|c| matches!(c, 'a'..='z'))(input)
+pub fn index(input: &str) -> IResult<&str, Label> {
+    satisfy(|c| matches!(c, 'a'..='z'))
+        .map(|c| Label::Index(c))
+        .parse(input)
 }
 
-/// Indices appearing in einsum operator, e.g. `ij`
-pub type Indices = Vec<char>;
+/// ellipsis = `...`
+pub fn ellipsis(input: &str) -> IResult<&str, Label> {
+    tag("...").map(|_| Label::Ellipsis).parse(input)
+}
 
-/// indices = { [index] };
-pub fn indices(input: &str) -> IResult<&str, Indices> {
+/// Each subscript label
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Label {
+    /// Single index, e.g. `i` or `j`
+    Index(char),
+    /// Ellipsis `...` representing broadcast
+    Ellipsis,
+}
+
+/// Each subscript appearing in einsum, e.g. `ij`
+pub type SubScript = Vec<Label>;
+
+/// subscript = { [index] | [ellipsis] };
+pub fn subscript(input: &str) -> IResult<&str, SubScript> {
     many0(alt((index.map(|c| Some(c)), multispace1.map(|_| None))))
         .map(|chars| chars.into_iter().flatten().collect())
         .parse(input)
 }
 
-/// Einsum operator, e.g. `ij,jk->ik`
+/// Einsum subscripts, e.g. `ij,jk->ik`
 #[derive(Debug, PartialEq, Eq)]
-pub struct Operator {
-    /// Input indices, `ij` and `jk`
-    pub inputs: Vec<Indices>,
-    /// Output indices, `ik`
-    pub output: Indices,
+pub struct SubScripts {
+    /// Input subscript, `ij` and `jk`
+    pub inputs: Vec<SubScript>,
+    /// Output subscript. This may be empty for "implicit mode".
+    pub output: Option<SubScript>,
 }
 
-/// operator = [indices] {`,` [indices]} `->` [indices]
-pub fn operator(input: &str) -> IResult<&str, Operator> {
+/// subscripts = [subscript] {`,` [subscript]} \[ `->` [subscript] \]
+pub fn subscripts(input: &str) -> IResult<&str, SubScripts> {
     let (input, _head) = multispace0(input)?;
-    let (input, inputs) = separated_list1(char(','), indices)(input)?;
-    let (input, _arrow) = tuple((multispace0, tag("->"), multispace0))(input)?;
-    let (input, output) = indices(input)?;
-    Ok((input, Operator { inputs, output }))
+    let (input, inputs) = separated_list1(char(','), subscript)(input)?;
+    let (input, output) = opt(tuple((multispace0, tag("->"), multispace0, subscript))
+        .map(|(_space_pre, _arrow, _space_post, output)| output))(input)?;
+    Ok((input, SubScripts { inputs, output }))
 }
 
 #[cfg(test)]
@@ -49,23 +66,29 @@ mod tests {
 
     #[test]
     fn test_indices() {
-        let ans = ("", vec!['i', 'j', 'k']);
-        assert_eq!(indices("ijk").finish().unwrap(), ans);
-        assert_eq!(indices("i jk").finish().unwrap(), ans);
-        assert_eq!(indices("ij k").finish().unwrap(), ans);
-        assert_eq!(indices("i j k").finish().unwrap(), ans);
+        let ans = (
+            "",
+            vec![Label::Index('i'), Label::Index('j'), Label::Index('k')],
+        );
+        assert_eq!(subscript("ijk").finish().unwrap(), ans);
+        assert_eq!(subscript("i jk").finish().unwrap(), ans);
+        assert_eq!(subscript("ij k").finish().unwrap(), ans);
+        assert_eq!(subscript("i j k").finish().unwrap(), ans);
     }
 
     #[test]
     fn test_operator() {
         fn test(input: &str) {
             dbg!(input);
-            let (_, op) = operator(input).finish().unwrap();
+            let (_, op) = subscripts(input).finish().unwrap();
             assert_eq!(
                 op,
-                Operator {
-                    inputs: vec![vec!['i', 'j'], vec!['j', 'k']],
-                    output: vec!['i', 'k'],
+                SubScripts {
+                    inputs: vec![
+                        vec![Label::Index('i'), Label::Index('j')],
+                        vec![Label::Index('j'), Label::Index('k')]
+                    ],
+                    output: Some(vec![Label::Index('i'), Label::Index('k')]),
                 }
             );
         }
@@ -80,5 +103,18 @@ mod tests {
         test("ij,jk ->ik");
         test("ij,jk-> ik");
         test("ij,jk->i k");
+
+        // implicit mode
+        let (_, op) = subscripts("ij,jk").finish().unwrap();
+        assert_eq!(
+            op,
+            SubScripts {
+                inputs: vec![
+                    vec![Label::Index('i'), Label::Index('j')],
+                    vec![Label::Index('j'), Label::Index('k')]
+                ],
+                output: None,
+            }
+        );
     }
 }
