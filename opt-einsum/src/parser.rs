@@ -4,10 +4,12 @@
 //! and corresponding EBNF-like schema are written in each document page.
 //!
 
+use crate::error::{Error, Result};
 use nom::{
     branch::*, bytes::complete::*, character::complete::*, combinator::*, multi::*, sequence::*,
     IResult, Parser,
 };
+use std::str::FromStr;
 
 /// index = `a` | `b` | `c` | `d` | `e` | `f` | `g` | `h` | `i` | `j` | `k` | `l` |`m` | `n` | `o` | `p` | `q` | `r` | `s` | `t` | `u` | `v` | `w` | `x` |`y` | `z`;
 pub fn index(input: &str) -> IResult<&str, Label> {
@@ -47,6 +49,18 @@ pub struct SubScripts {
     pub inputs: Vec<SubScript>,
     /// Output subscript. This may be empty for "implicit mode".
     pub output: Option<SubScript>,
+}
+
+impl FromStr for SubScripts {
+    type Err = Error;
+    fn from_str(input: &str) -> Result<Self> {
+        use nom::Finish;
+        if let Ok((_, ss)) = subscripts(input).finish() {
+            Ok(ss)
+        } else {
+            Err(Error::InvalidSubScripts(input.to_string()))
+        }
+    }
 }
 
 /// subscripts = [subscript] {`,` [subscript]} \[ `->` [subscript] \]
