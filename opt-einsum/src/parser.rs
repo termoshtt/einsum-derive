@@ -14,7 +14,7 @@ use std::str::FromStr;
 /// index = `a` | `b` | `c` | `d` | `e` | `f` | `g` | `h` | `i` | `j` | `k` | `l` |`m` | `n` | `o` | `p` | `q` | `r` | `s` | `t` | `u` | `v` | `w` | `x` |`y` | `z`;
 pub fn index(input: &str) -> IResult<&str, Label> {
     satisfy(|c| matches!(c, 'a'..='z'))
-        .map(|c| Label::Index(c))
+        .map(Label::Index)
         .parse(input)
 }
 
@@ -37,7 +37,7 @@ pub type SubScript = Vec<Label>;
 
 /// subscript = { [index] | [ellipsis] };
 pub fn subscript(input: &str) -> IResult<&str, SubScript> {
-    many0(alt((index.map(|c| Some(c)), multispace1.map(|_| None))))
+    many0(alt((index.map(Some), multispace1.map(|_| None))))
         .map(|chars| chars.into_iter().flatten().collect())
         .parse(input)
 }

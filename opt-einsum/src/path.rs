@@ -53,7 +53,7 @@ impl Path {
                         let mut found = false;
                         for (c, count) in &mut count {
                             if index == c {
-                                *count = *count + 1;
+                                *count += 1;
                                 found = true;
                             }
                         }
