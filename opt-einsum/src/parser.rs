@@ -41,6 +41,18 @@ pub struct RawSubscripts {
     pub output: Option<Subscript>,
 }
 
+impl std::str::FromStr for RawSubscripts {
+    type Err = crate::error::Error;
+    fn from_str(input: &str) -> crate::error::Result<Self> {
+        use nom::Finish;
+        if let Ok((_, ss)) = subscripts(input).finish() {
+            Ok(ss)
+        } else {
+            Err(Self::Err::InvalidSubScripts(input.to_string()))
+        }
+    }
+}
+
 /// subscripts = [subscript] {`,` [subscript]} \[ `->` [subscript] \]
 pub fn subscripts(input: &str) -> IResult<&str, RawSubscripts> {
     let (input, _head) = multispace0(input)?;

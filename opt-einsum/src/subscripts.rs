@@ -2,7 +2,10 @@ use crate::{
     error::{Error, Result},
     parser,
 };
-use std::{collections::BTreeSet, str::FromStr};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    str::FromStr,
+};
 
 /// Each subscript label
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -11,6 +14,15 @@ pub enum Label {
     Index(char),
     /// Ellipsis `...` representing broadcast
     Ellipsis,
+}
+
+impl PartialEq<char> for Label {
+    fn eq(&self, other: &char) -> bool {
+        match self {
+            Label::Index(i) => i == other,
+            Label::Ellipsis => false,
+        }
+    }
 }
 
 /// Each subscript appearing in einsum, e.g. `ij`
@@ -26,8 +38,67 @@ pub struct Subscripts {
 }
 
 impl Subscripts {
-    pub fn from_raw(_raw: parser::RawSubscripts) -> Result<Self> {
-        todo!()
+    /// Normalize subscripts into "explicit mode"
+    ///
+    /// [numpy.einsum](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html)
+    /// has "explicit mode" including `->`, e.g. `ij,jk->ik` and
+    /// "implicit mode" e.g. `ij,jk`.
+    /// The output subscript is determined from input subscripts in implicit mode:
+    ///
+    /// > In implicit mode, the chosen subscripts are important since the axes
+    /// > of the output are reordered alphabetically.
+    /// > This means that `np.einsum('ij', a)` doesn’t affect a 2D array,
+    /// > while `np.einsum('ji', a)` takes its transpose.
+    /// > Additionally, `np.einsum('ij,jk', a, b)` returns a matrix multiplication,
+    /// > while, `np.einsum('ij,jh', a, b)` returns the transpose of
+    /// > the multiplication since subscript ‘h’ precedes subscript ‘i’.
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use opt_einsum::{subscripts::Subscripts, parser::RawSubscripts};
+    ///
+    /// // Infer output subscripts for implicit mode
+    /// let raw = RawSubscripts::from_str("ij,jk").unwrap();
+    /// let subscripts = Subscripts::from_raw(raw).unwrap();
+    /// assert_eq!(subscripts.output, ['i', 'k']);
+    ///
+    /// // Reordered alphabetically
+    /// let raw = RawSubscripts::from_str("ji").unwrap();
+    /// let subscripts = Subscripts::from_raw(raw).unwrap();
+    /// assert_eq!(subscripts.output, ['i', 'j']);
+    /// ```
+    ///
+    pub fn from_raw(raw: parser::RawSubscripts) -> Result<Self> {
+        if let Some(output) = raw.output {
+            return Ok(Subscripts {
+                inputs: raw.inputs,
+                output,
+            });
+        }
+
+        let mut count = BTreeMap::new();
+        for input in &raw.inputs {
+            for label in input.iter() {
+                match label {
+                    Label::Index(c) => count.entry(*c).and_modify(|n| *n += 1).or_insert(1),
+                    Label::Ellipsis => continue,
+                };
+            }
+        }
+        let output = count
+            .iter()
+            .filter_map(|(key, value)| {
+                if *value == 1 {
+                    Some(Label::Index(*key))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        Ok(Subscripts {
+            inputs: raw.inputs,
+            output,
+        })
     }
 
     /// Subscripts to be contracted
@@ -56,11 +127,7 @@ impl Subscripts {
 impl FromStr for Subscripts {
     type Err = Error;
     fn from_str(input: &str) -> Result<Self> {
-        use nom::Finish;
-        if let Ok((_, ss)) = parser::subscripts(input).finish() {
-            Self::from_raw(ss)
-        } else {
-            Err(Error::InvalidSubScripts(input.to_string()))
-        }
+        let raw = parser::RawSubscripts::from_str(input)?;
+        Self::from_raw(raw)
     }
 }
