@@ -96,42 +96,19 @@ pub struct Path {
 }
 
 impl Path {
-    /// Naive order, first appears first sum
+    /// Alphabetical order
     ///
     /// ```
     /// use std::str::FromStr;
     /// use opt_einsum::{path::Path, subscripts::Subscripts};
     ///
     /// let subscripts = Subscripts::from_str("ij,ji->").unwrap();
-    /// let path = Path::naive(&subscripts);
+    /// let path = Path::alphabetical(&subscripts);
     /// assert_eq!(path, Path { path: vec!['i', 'j'] });
     /// ```
-    pub fn naive(subscripts: &Subscripts) -> Self {
-        let mut count: Vec<(char, usize)> = Vec::new();
-        for input in &subscripts.inputs {
-            for label in input {
-                match label {
-                    Label::Index(index) => {
-                        let mut found = false;
-                        for (c, count) in &mut count {
-                            if index == c {
-                                *count += 1;
-                                found = true;
-                            }
-                        }
-                        if !found {
-                            count.push((*index, 1))
-                        }
-                    }
-                    Label::Ellipsis => unimplemented!("Ellipsis (...) is not supported yet"),
-                };
-            }
-        }
+    pub fn alphabetical(subscripts: &Subscripts) -> Self {
         Path {
-            path: count
-                .into_iter()
-                .flat_map(|(key, value)| if value > 1 { Some(key) } else { None })
-                .collect(),
+            path: subscripts.contraction_subscripts().into_iter().collect(),
         }
     }
 }
