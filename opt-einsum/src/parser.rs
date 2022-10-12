@@ -4,12 +4,11 @@
 //! and corresponding EBNF-like schema are written in each document page.
 //!
 
-use crate::error::{Error, Result};
+use crate::subscripts::*;
 use nom::{
     branch::*, bytes::complete::*, character::complete::*, combinator::*, multi::*, sequence::*,
     IResult, Parser,
 };
-use std::str::FromStr;
 
 /// index = `a` | `b` | `c` | `d` | `e` | `f` | `g` | `h` | `i` | `j` | `k` | `l` |`m` | `n` | `o` | `p` | `q` | `r` | `s` | `t` | `u` | `v` | `w` | `x` |`y` | `z`;
 pub fn index(input: &str) -> IResult<&str, Label> {
@@ -23,15 +22,6 @@ pub fn ellipsis(input: &str) -> IResult<&str, Label> {
     tag("...").map(|_| Label::Ellipsis).parse(input)
 }
 
-/// Each subscript label
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Label {
-    /// Single index, e.g. `i` or `j`
-    Index(char),
-    /// Ellipsis `...` representing broadcast
-    Ellipsis,
-}
-
 /// Each subscript appearing in einsum, e.g. `ij`
 pub type SubScript = Vec<Label>;
 
@@ -40,27 +30,6 @@ pub fn subscript(input: &str) -> IResult<&str, SubScript> {
     many0(alt((index.map(Some), multispace1.map(|_| None))))
         .map(|chars| chars.into_iter().flatten().collect())
         .parse(input)
-}
-
-/// Einsum subscripts, e.g. `ij,jk->ik`
-#[derive(Debug, PartialEq, Eq)]
-pub struct SubScripts {
-    /// Input subscript, `ij` and `jk`
-    pub inputs: Vec<SubScript>,
-    /// Output subscript. This may be empty for "implicit mode".
-    pub output: Option<SubScript>,
-}
-
-impl FromStr for SubScripts {
-    type Err = Error;
-    fn from_str(input: &str) -> Result<Self> {
-        use nom::Finish;
-        if let Ok((_, ss)) = subscripts(input).finish() {
-            Ok(ss)
-        } else {
-            Err(Error::InvalidSubScripts(input.to_string()))
-        }
-    }
 }
 
 /// subscripts = [subscript] {`,` [subscript]} \[ `->` [subscript] \]

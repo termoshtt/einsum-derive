@@ -1,6 +1,6 @@
 //! Construct and execute contraction path
 
-use crate::{error::*, parser::*};
+use crate::{error::*, subscripts::*};
 
 #[cfg_attr(doc, katexit::katexit)]
 /// Contraction path
