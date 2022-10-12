@@ -100,13 +100,13 @@ impl Path {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use opt_einsum::{path::Path, parser::SubScripts};
+    /// use opt_einsum::{path::Path, subscripts::Subscripts};
     ///
-    /// let subscripts = SubScripts::from_str("ij,ji->").unwrap();
+    /// let subscripts = Subscripts::from_str("ij,ji->").unwrap();
     /// let path = Path::naive(&subscripts);
     /// assert_eq!(path, Path { path: vec!['i', 'j'] });
     /// ```
-    pub fn naive(subscripts: &SubScripts) -> Self {
+    pub fn naive(subscripts: &Subscripts) -> Self {
         let mut count: Vec<(char, usize)> = Vec::new();
         for input in &subscripts.inputs {
             for label in input {
@@ -139,16 +139,16 @@ impl Path {
 /// Evaluate contracted indices
 ///
 /// ```
-/// use opt_einsum::{parser::*, path::*};
+/// use opt_einsum::{subscripts::*, path::*};
 /// use std::str::FromStr;
 ///
-/// let subscripts = SubScripts::from_str("ij,jk,kl->il").unwrap();
+/// let subscripts = Subscripts::from_str("ij,jk,kl->il").unwrap();
 /// let contracted = contracted_subscripts(&subscripts, 'j').unwrap();
-/// assert_eq!(contracted, SubScripts::from_str("ik,kl->il").unwrap());
+/// assert_eq!(contracted, Subscripts::from_str("ik,kl->il").unwrap());
 /// ```
 pub fn contracted_subscripts(
-    _subscripts: &SubScripts,
+    _subscripts: &Subscripts,
     _summation_index: char,
-) -> Result<SubScripts> {
+) -> Result<Subscripts> {
     todo!()
 }

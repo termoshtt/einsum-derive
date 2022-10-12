@@ -32,13 +32,22 @@ pub fn subscript(input: &str) -> IResult<&str, SubScript> {
         .parse(input)
 }
 
+/// Einsum subscripts, e.g. `ij,jk->ik`
+#[derive(Debug, PartialEq, Eq)]
+pub struct RawSubscripts {
+    /// Input subscript, `ij` and `jk`
+    pub inputs: Vec<Subscript>,
+    /// Output subscript. This may be empty for "implicit mode".
+    pub output: Option<Subscript>,
+}
+
 /// subscripts = [subscript] {`,` [subscript]} \[ `->` [subscript] \]
-pub fn subscripts(input: &str) -> IResult<&str, SubScripts> {
+pub fn subscripts(input: &str) -> IResult<&str, RawSubscripts> {
     let (input, _head) = multispace0(input)?;
     let (input, inputs) = separated_list1(char(','), subscript)(input)?;
     let (input, output) = opt(tuple((multispace0, tag("->"), multispace0, subscript))
         .map(|(_space_pre, _arrow, _space_post, output)| output))(input)?;
-    Ok((input, SubScripts { inputs, output }))
+    Ok((input, RawSubscripts { inputs, output }))
 }
 
 #[cfg(test)]
@@ -66,7 +75,7 @@ mod tests {
             let (_, op) = subscripts(input).finish().unwrap();
             assert_eq!(
                 op,
-                SubScripts {
+                RawSubscripts {
                     inputs: vec![
                         vec![Label::Index('i'), Label::Index('j')],
                         vec![Label::Index('j'), Label::Index('k')]
@@ -91,7 +100,7 @@ mod tests {
         let (_, op) = subscripts("ij,jk").finish().unwrap();
         assert_eq!(
             op,
-            SubScripts {
+            RawSubscripts {
                 inputs: vec![
                     vec![Label::Index('i'), Label::Index('j')],
                     vec![Label::Index('j'), Label::Index('k')]
