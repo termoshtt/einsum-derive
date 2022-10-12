@@ -105,19 +105,20 @@ impl Subscripts {
     ///
     /// ```
     /// use std::str::FromStr;
+    /// use maplit::btreeset;
     /// use opt_einsum::subscripts::Subscripts;
     ///
     /// // Matrix multiplication AB
     /// let subscripts = Subscripts::from_str("ij,jk->ik").unwrap();
-    /// assert_eq!(subscripts.contraction_subscripts(), vec!['j']);
+    /// assert_eq!(subscripts.contraction_subscripts(), btreeset!{'j'});
     ///
     /// // Reduce all Tr(AB)
     /// let subscripts = Subscripts::from_str("ij,ji->").unwrap();
-    /// assert_eq!(subscripts.contraction_subscripts(), vec!['i', 'j']);
+    /// assert_eq!(subscripts.contraction_subscripts(), btreeset!{'i', 'j'});
     ///
     /// // Take diagonal elements
     /// let subscripts = Subscripts::from_str("ii->i").unwrap();
-    /// assert_eq!(subscripts.contraction_subscripts(), vec![]);
+    /// assert_eq!(subscripts.contraction_subscripts(), btreeset!{});
     /// ```
     pub fn contraction_subscripts(&self) -> BTreeSet<char> {
         todo!()
