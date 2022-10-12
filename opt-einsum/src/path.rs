@@ -1,6 +1,6 @@
 //! Construct and execute contraction path
 
-use crate::parser::*;
+use crate::{error::*, parser::*};
 
 #[cfg_attr(doc, katexit::katexit)]
 /// Contraction path
@@ -134,4 +134,21 @@ impl Path {
                 .collect(),
         }
     }
+}
+
+/// Evaluate contracted indices
+///
+/// ```
+/// use opt_einsum::{parser::*, path::*};
+/// use std::str::FromStr;
+///
+/// let subscripts = SubScripts::from_str("ij,jk,kl->il").unwrap();
+/// let contracted = contracted_subscripts(&subscripts, 'j').unwrap();
+/// assert_eq!(contracted, SubScripts::from_str("ik,kl->il").unwrap());
+/// ```
+pub fn contracted_subscripts(
+    _subscripts: &SubScripts,
+    _summation_index: char,
+) -> Result<SubScripts> {
+    todo!()
 }
