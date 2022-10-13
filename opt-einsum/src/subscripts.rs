@@ -93,7 +93,7 @@ impl Subscripts {
         }
     }
 
-    /// Subscripts to be contracted
+    /// Indices to be contracted
     ///
     /// ```
     /// use std::str::FromStr;
@@ -137,6 +137,10 @@ impl Subscripts {
     /// assert_eq!(contracted, Subscripts::from_str("ik,kl->il").unwrap());
     /// ```
     pub fn contracted(&self, index: char) -> Result<Self> {
+        if !self.contraction_indices().contains(&index) {
+            return Err(Error::UnknownIndex(index));
+        }
+
         let mut intermediate = BTreeSet::new();
         let mut others = Vec::new();
         for input in &self.inputs {
