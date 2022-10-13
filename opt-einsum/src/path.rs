@@ -1,6 +1,6 @@
 //! Construct and execute contraction path
 
-use crate::{error::*, subscripts::*};
+use crate::subscripts::*;
 
 #[cfg_attr(doc, katexit::katexit)]
 /// Contraction path
@@ -108,24 +108,7 @@ impl Path {
     /// ```
     pub fn alphabetical(subscripts: &Subscripts) -> Self {
         Path {
-            path: subscripts.contraction_subscripts().into_iter().collect(),
+            path: subscripts.contraction_indices().into_iter().collect(),
         }
     }
-}
-
-/// Evaluate contracted indices
-///
-/// ```
-/// use opt_einsum::{subscripts::*, path::*};
-/// use std::str::FromStr;
-///
-/// let subscripts = Subscripts::from_str("ij,jk,kl->il").unwrap();
-/// let contracted = contracted_subscripts(&subscripts, 'j').unwrap();
-/// assert_eq!(contracted, Subscripts::from_str("ik,kl->il").unwrap());
-/// ```
-pub fn contracted_subscripts(
-    _subscripts: &Subscripts,
-    _summation_index: char,
-) -> Result<Subscripts> {
-    todo!()
 }

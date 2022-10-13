@@ -102,17 +102,17 @@ impl Subscripts {
     ///
     /// // Matrix multiplication AB
     /// let subscripts = Subscripts::from_str("ij,jk->ik").unwrap();
-    /// assert_eq!(subscripts.contraction_subscripts(), btreeset!{'j'});
+    /// assert_eq!(subscripts.contraction_indices(), btreeset!{'j'});
     ///
     /// // Reduce all Tr(AB)
     /// let subscripts = Subscripts::from_str("ij,ji->").unwrap();
-    /// assert_eq!(subscripts.contraction_subscripts(), btreeset!{'i', 'j'});
+    /// assert_eq!(subscripts.contraction_indices(), btreeset!{'i', 'j'});
     ///
     /// // Take diagonal elements
     /// let subscripts = Subscripts::from_str("ii->i").unwrap();
-    /// assert_eq!(subscripts.contraction_subscripts(), btreeset!{});
+    /// assert_eq!(subscripts.contraction_indices(), btreeset!{});
     /// ```
-    pub fn contraction_subscripts(&self) -> BTreeSet<char> {
+    pub fn contraction_indices(&self) -> BTreeSet<char> {
         let count = count_inputs(&self.inputs);
         let mut subscripts: BTreeSet<char> = count
             .into_iter()
@@ -124,6 +124,45 @@ impl Subscripts {
             }
         }
         subscripts
+    }
+
+    /// Evaluate contracted indices
+    ///
+    /// ```
+    /// use opt_einsum::subscripts::*;
+    /// use std::str::FromStr;
+    ///
+    /// let subscripts = Subscripts::from_str("ij,jk,kl->il").unwrap();
+    /// let contracted = subscripts.contracted('j').unwrap();
+    /// assert_eq!(contracted, Subscripts::from_str("ik,kl->il").unwrap());
+    /// ```
+    pub fn contracted(&self, index: char) -> Result<Self> {
+        let mut intermediate = BTreeSet::new();
+        let mut others = Vec::new();
+        for input in &self.inputs {
+            if input.iter().any(|label| *label == index) {
+                for label in input {
+                    if let Label::Index(c) = label {
+                        if *c != index {
+                            intermediate.insert(c);
+                        }
+                    }
+                }
+            } else {
+                others.push(input.clone());
+            }
+        }
+        let mut inputs = vec![intermediate
+            .into_iter()
+            .map(|index| Label::Index(*index))
+            .collect::<Vec<Label>>()];
+        for other in others {
+            inputs.push(other)
+        }
+        Ok(Self {
+            inputs,
+            output: self.output.clone(),
+        })
     }
 }
 
