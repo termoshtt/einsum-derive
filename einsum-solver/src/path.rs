@@ -92,10 +92,16 @@ use crate::subscripts::*;
 ///
 #[derive(Debug, PartialEq, Eq)]
 pub struct Path {
+    pub subscripts: Subscripts,
     pub path: Vec<char>,
 }
 
 impl Path {
+    /// Manually set contraction order
+    pub fn manual(subscripts: Subscripts, path: Vec<char>) -> Self {
+        Path { subscripts, path }
+    }
+
     /// Alphabetical order
     ///
     /// ```
@@ -103,12 +109,11 @@ impl Path {
     /// use einsum_solver::{path::Path, subscripts::Subscripts};
     ///
     /// let subscripts = Subscripts::from_str("ij,ji->").unwrap();
-    /// let path = Path::alphabetical(&subscripts);
-    /// assert_eq!(path, Path { path: vec!['i', 'j'] });
+    /// let path = Path::alphabetical(subscripts);
+    /// assert_eq!(path.path, &['i', 'j']);
     /// ```
-    pub fn alphabetical(subscripts: &Subscripts) -> Self {
-        Path {
-            path: subscripts.contraction_indices().into_iter().collect(),
-        }
+    pub fn alphabetical(subscripts: Subscripts) -> Self {
+        let path = subscripts.contraction_indices().into_iter().collect();
+        Path { subscripts, path }
     }
 }
