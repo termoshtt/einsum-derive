@@ -55,7 +55,7 @@ impl Subscripts {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use opt_einsum::{subscripts::Subscripts, parser::RawSubscripts};
+    /// use einsum_solver::{subscripts::Subscripts, parser::RawSubscripts};
     ///
     /// // Infer output subscripts for implicit mode
     /// let raw = RawSubscripts::from_str("ij,jk").unwrap();
@@ -98,7 +98,7 @@ impl Subscripts {
     /// ```
     /// use std::str::FromStr;
     /// use maplit::btreeset;
-    /// use opt_einsum::subscripts::Subscripts;
+    /// use einsum_solver::subscripts::Subscripts;
     ///
     /// // Matrix multiplication AB
     /// let subscripts = Subscripts::from_str("ij,jk->ik").unwrap();
@@ -129,7 +129,7 @@ impl Subscripts {
     /// Evaluate contracted indices
     ///
     /// ```
-    /// use opt_einsum::subscripts::*;
+    /// use einsum_solver::subscripts::*;
     /// use std::str::FromStr;
     ///
     /// let subscripts = Subscripts::from_str("ij,jk,kl->il").unwrap();

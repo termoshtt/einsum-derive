@@ -100,7 +100,7 @@ impl Path {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use opt_einsum::{path::Path, subscripts::Subscripts};
+    /// use einsum_solver::{path::Path, subscripts::Subscripts};
     ///
     /// let subscripts = Subscripts::from_str("ij,ji->").unwrap();
     /// let path = Path::alphabetical(&subscripts);
