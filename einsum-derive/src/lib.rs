@@ -25,7 +25,11 @@ use syn::parse::Parser;
 #[proc_macro_error]
 #[proc_macro]
 pub fn einsum(input: TokenStream) -> TokenStream {
-    let (subscripts, args) = parse_einsum_args(input.into());
+    einsum2(input.into()).into()
+}
+
+fn einsum2(input: TokenStream2) -> TokenStream2 {
+    let (subscripts, args) = parse_einsum_args(input);
 
     // Validate subscripts
     let subscripts = Subscripts::from_str(&subscripts)
@@ -42,11 +46,10 @@ pub fn einsum(input: TokenStream) -> TokenStream {
     // Generate a block which returns result tensor
     quote! {
         {
-            #(let #names = #args;)*
+            #( let #names = #args; )*
             ()
         }
     }
-    .into()
 }
 
 fn parse_einsum_args(input: TokenStream2) -> (String, Vec<syn::Expr>) {
@@ -66,4 +69,16 @@ fn parse_einsum_args(input: TokenStream2) -> (String, Vec<syn::Expr>) {
     };
     let args = iter.collect::<Vec<_>>();
     (subscripts, args)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_snapshots() {
+        let input = TokenStream2::from_str(r#""ij,jk->ik", a, b"#).unwrap();
+        let tt = einsum2(input).to_string();
+        insta::assert_snapshot!(tt, @"{ let arg0 = a ; let arg1 = b ; () }");
+    }
 }
