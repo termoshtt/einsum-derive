@@ -3,6 +3,7 @@
 use einsum_solver::subscripts::Subscripts;
 use proc_macro::{TokenStream, TokenTree};
 use proc_macro_error::*;
+use quote::quote;
 use std::str::FromStr;
 
 /// proc-macro based einsum
@@ -22,6 +23,7 @@ use std::str::FromStr;
 #[proc_macro_error]
 #[proc_macro]
 pub fn einsum(input: TokenStream) -> TokenStream {
+    // Check proc-macro input
     let mut iter = input.into_iter();
     let subscripts = if let Some(TokenTree::Literal(lit)) = iter.next() {
         lit.to_string().trim_matches('"').to_string()
@@ -36,13 +38,17 @@ pub fn einsum(input: TokenStream) -> TokenStream {
         }
     }
 
+    // Validate subscripts
     let subscripts = Subscripts::from_str(&subscripts)
         .ok()
         .expect_or_abort("Invalid subscripts");
     if subscripts.inputs.len() != args.len() {
         abort_call_site!("Argument number mismatch");
     }
-    dbg!(&subscripts);
 
-    todo!()
+    // Generate summation
+    quote! {
+        ()
+    }
+    .into()
 }
