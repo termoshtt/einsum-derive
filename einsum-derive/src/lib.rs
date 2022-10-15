@@ -1,10 +1,12 @@
 //! proc-macro based einsum implementation
 
 use einsum_solver::subscripts::Subscripts;
-use proc_macro::{TokenStream, TokenTree};
-use proc_macro_error::*;
+use proc_macro::TokenStream;
+use proc_macro2::TokenStream as TokenStream2;
+use proc_macro_error::{abort_call_site, proc_macro_error, OptionExt, ResultExt};
 use quote::quote;
 use std::str::FromStr;
+use syn::parse::Parser;
 
 /// proc-macro based einsum
 ///
@@ -23,20 +25,7 @@ use std::str::FromStr;
 #[proc_macro_error]
 #[proc_macro]
 pub fn einsum(input: TokenStream) -> TokenStream {
-    // Check proc-macro input
-    let mut iter = input.into_iter();
-    let subscripts = if let Some(TokenTree::Literal(lit)) = iter.next() {
-        lit.to_string().trim_matches('"').to_string()
-    } else {
-        abort_call_site!("einsum! must start with subscript string literal");
-    };
-    let mut args = Vec::new();
-    while let Some(arg) = iter.next() {
-        match arg {
-            TokenTree::Ident(ident) => args.push(ident),
-            _ => continue,
-        }
-    }
+    let (subscripts, args) = parse_einsum_args(input.into());
 
     // Validate subscripts
     let subscripts = Subscripts::from_str(&subscripts)
@@ -51,4 +40,23 @@ pub fn einsum(input: TokenStream) -> TokenStream {
         ()
     }
     .into()
+}
+
+fn parse_einsum_args(input: TokenStream2) -> (String, Vec<syn::Expr>) {
+    let parser = syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated;
+    let args = parser
+        .parse2(input)
+        .expect_or_abort("Invalid input for einsum!");
+    let mut iter = args.into_iter();
+    let subscripts = if let Some(syn::Expr::Lit(syn::ExprLit {
+        lit: syn::Lit::Str(lit),
+        attrs: _,
+    })) = iter.next()
+    {
+        lit.value()
+    } else {
+        abort_call_site!("einsum! must start with subscript string literal")
+    };
+    let args = iter.collect::<Vec<_>>();
+    (subscripts, args)
 }
