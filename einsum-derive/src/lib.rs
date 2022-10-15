@@ -5,7 +5,10 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use proc_macro_error::{abort_call_site, proc_macro_error, OptionExt, ResultExt};
 use quote::quote;
-use std::str::FromStr;
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    str::FromStr,
+};
 use syn::parse::Parser;
 
 /// proc-macro based einsum
@@ -39,20 +42,63 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
         abort_call_site!("Argument number mismatch");
     }
 
+    // Generate pre-requirement parts:
+    //
+    // - Define variable for input tensor expr
+    //   ```
+    //   let arg0 = a;
+    //   ```
+    //
+    // - Define size of dimensions for each input tensors
+    //   ```
+    //   let (n_0_i, n_0_j) = arg0.dim();
+    //   ```
+    //
+    // - Set global size if not defined
+    //   ```
+    //   let n_i = n_0_i;
+    //   ```
+    //
+    // - Or insert runtime check of sizes
+    //   ```
+    //   assert_eq!(n_i, n_1_i);
+    //   ```
+    //
+    let mut n_idents: HashMap<char, proc_macro2::Ident> = HashMap::new();
     let mut tt = Vec::new();
     for argc in 0..args.len() {
         let name = quote::format_ident!("arg{}", argc);
         let arg = &args[argc];
-        let ns: Vec<_> = subscripts.inputs[argc]
-            .iter()
-            .map(|label| match label {
-                Label::Index(i) => quote::format_ident!("n_{}_{}", argc, i),
+        let mut n_index_each = Vec::new();
+        let mut def_or_assert = Vec::new();
+        for label in &subscripts.inputs[argc] {
+            match label {
+                Label::Index(i) => {
+                    let n = quote::format_ident!("n_{}_{}", argc, i);
+                    match n_idents.entry(*i) {
+                        Entry::Occupied(entry) => {
+                            let n_ = entry.get();
+                            def_or_assert.push(quote! {
+                                assert_eq!(#n_, #n);
+                            });
+                        }
+                        Entry::Vacant(entry) => {
+                            let n_ident = quote::format_ident!("n_{}", i);
+                            def_or_assert.push(quote! {
+                                let #n_ident = #n;
+                            });
+                            entry.insert(n_ident);
+                        }
+                    }
+                    n_index_each.push(n);
+                }
                 _ => unimplemented!(),
-            })
-            .collect();
+            }
+        }
         tt.push(quote! {
             let #name = #arg;
-            let (#(#ns),*) = #name.dim();
+            let (#(#n_index_each),*) = #name.dim();
+            #( #def_or_assert )*
         });
     }
 
@@ -100,8 +146,12 @@ mod test {
             {
                 let arg0 = a;
                 let (n_0_i, n_0_j) = arg0.dim();
+                let n_i = n_0_i;
+                let n_j = n_0_j;
                 let arg1 = b;
                 let (n_1_j, n_1_k) = arg1.dim();
+                assert_eq!(n_j, n_1_j);
+                let n_k = n_1_k;
                 ()
             }
         "###);
