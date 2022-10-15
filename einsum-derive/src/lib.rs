@@ -11,16 +11,16 @@ use syn::parse::Parser;
 /// proc-macro based einsum
 ///
 /// ```
-/// use einsum_derive::einsum;
-///
-/// let c = einsum!("ij,jk->ik", a, b);
+/// let a = ndarray::array![[1.0, 2.0], [3.0, 4.0]];
+/// let b = ndarray::array![[1.0, 2.0], [3.0, 4.0]];
+/// let c = einsum_derive::einsum!("ij,jk->ik", a, b);
 /// ```
 ///
-/// ```compile_fail
-/// use einsum_derive::einsum;
+/// Number of input mismatch causes compile error:
 ///
-/// // Number of input mismatches!
-/// let c = einsum!("ij,jk->ik", a);
+/// ```compile_fail
+/// let a = ndarray::array![[1.0, 2.0], [3.0, 4.0]];
+/// let c = einsum_derive::einsum!("ij,jk->ik", a);
 /// ```
 #[proc_macro_error]
 #[proc_macro]
@@ -35,9 +35,16 @@ pub fn einsum(input: TokenStream) -> TokenStream {
         abort_call_site!("Argument number mismatch");
     }
 
-    // Generate summation
+    let names: Vec<syn::Ident> = (0..args.len())
+        .map(|i| quote::format_ident!("arg{}", i))
+        .collect();
+
+    // Generate a block which returns result tensor
     quote! {
-        ()
+        {
+            #(let #names = #args;)*
+            ()
+        }
     }
     .into()
 }
