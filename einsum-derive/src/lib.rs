@@ -44,7 +44,7 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
 
     // Generate pre-requirement parts:
     //
-    // - Define variable for input tensor expr
+    // - Define variable for input tensor expression
     //   ```
     //   let arg0 = a;
     //   ```
@@ -65,7 +65,7 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
     //   ```
     //
     let mut n_idents: HashMap<char, proc_macro2::Ident> = HashMap::new();
-    let mut tt = Vec::new();
+    let mut pre_requirements_tt = Vec::new();
     for argc in 0..args.len() {
         let name = quote::format_ident!("arg{}", argc);
         let arg = &args[argc];
@@ -95,18 +95,35 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
                 _ => unimplemented!(),
             }
         }
-        tt.push(quote! {
+        pre_requirements_tt.push(quote! {
             let #name = #arg;
             let (#(#n_index_each),*) = #name.dim();
             #( #def_or_assert )*
         });
     }
 
-    // Generate a block which returns result tensor
+    // Define output array
+    let output_ident = quote::format_ident!("out");
+    let mut n_output = Vec::new();
+    for label in &subscripts.output {
+        match label {
+            Label::Index(i) => n_output.push(n_idents.get(i).expect_or_abort("")),
+            _ => unimplemented!(),
+        }
+    }
+    let output_tt = quote! {
+        let #output_ident = ndarray::Array::<f64, _>::zeros((#(#n_output),*));
+    };
+
+    // TODO: Compute contraction
+    let contraction_tt = quote! {};
+
     quote! {
         {
-            #(#tt)*
-            ()
+            #(#pre_requirements_tt)*
+            #output_tt
+            #contraction_tt
+            #output_ident
         }
     }
 }
@@ -152,7 +169,8 @@ mod test {
                 let (n_1_j, n_1_k) = arg1.dim();
                 assert_eq!(n_j, n_1_j);
                 let n_k = n_1_k;
-                ()
+                let out = ndarray::Array::<f64, _>::zeros((n_i, n_k));
+                out
             }
         "###);
     }
