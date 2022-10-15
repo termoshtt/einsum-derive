@@ -66,14 +66,17 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
     //
     let mut n_idents: HashMap<char, proc_macro2::Ident> = HashMap::new();
     let mut pre_requirements_tt = Vec::new();
+    let mut inner_args_tt = Vec::new();
     for argc in 0..args.len() {
         let name = quote::format_ident!("arg{}", argc);
         let arg = &args[argc];
+        let mut index = Vec::new();
         let mut n_index_each = Vec::new();
         let mut def_or_assert = Vec::new();
         for label in &subscripts.inputs[argc] {
             match label {
                 Label::Index(i) => {
+                    index.push(quote::format_ident!("{}", i));
                     let n = quote::format_ident!("n_{}_{}", argc, i);
                     match n_idents.entry(*i) {
                         Entry::Occupied(entry) => {
@@ -100,6 +103,9 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
             let (#(#n_index_each),*) = #name.dim();
             #( #def_or_assert )*
         });
+        inner_args_tt.push(quote! {
+            #name[(#(#index),*)]
+        })
     }
 
     // Define output array
@@ -112,11 +118,45 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
         }
     }
     let output_tt = quote! {
-        let #output_ident = ndarray::Array::<f64, _>::zeros((#(#n_output),*));
+        let mut #output_ident = ndarray::Array::<f64, _>::zeros((#(#n_output),*));
     };
 
-    // TODO: Compute contraction
-    let contraction_tt = quote! {};
+    // Compute contraction
+    let mut inner_mul = None;
+    for inner in inner_args_tt {
+        match inner_mul {
+            Some(i) => inner_mul = Some(quote! { #i * #inner }),
+            None => inner_mul = Some(inner),
+        }
+    }
+    let mut output_indices = Vec::new();
+    let mut for_lambda: Vec<Box<dyn FnOnce(TokenStream2) -> TokenStream2>> = Vec::new();
+    for label in &subscripts.output {
+        match label {
+            Label::Index(i) => {
+                let index = quote::format_ident!("{}", i);
+                output_indices.push(index.clone());
+                let n = quote::format_ident!("n_{}", i);
+                for_lambda.push(Box::new(
+                    move |inner: TokenStream2| quote! { for #index in 0..#n { #inner } },
+                ));
+            }
+            _ => unimplemented!(),
+        }
+    }
+    for i in subscripts.contraction_indices() {
+        let index = quote::format_ident!("{}", i);
+        let n = quote::format_ident!("n_{}", i);
+        for_lambda.push(Box::new(
+            move |inner: TokenStream2| quote! { for #index in 0..#n { #inner } },
+        ));
+    }
+    let mut contraction_tt = quote! {
+        #output_ident[(#(#output_indices),*)] = #inner_mul;
+    };
+    for l in for_lambda.into_iter().rev() {
+        contraction_tt = l(contraction_tt);
+    }
 
     quote! {
         {
@@ -169,7 +209,14 @@ mod test {
                 let (n_1_j, n_1_k) = arg1.dim();
                 assert_eq!(n_j, n_1_j);
                 let n_k = n_1_k;
-                let out = ndarray::Array::<f64, _>::zeros((n_i, n_k));
+                let mut out = ndarray::Array::<f64, _>::zeros((n_i, n_k));
+                for i in 0..n_i {
+                    for k in 0..n_k {
+                        for j in 0..n_j {
+                            out[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
+                        }
+                    }
+                }
                 out
             }
         "###);
