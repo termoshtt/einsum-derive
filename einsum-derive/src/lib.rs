@@ -14,16 +14,39 @@ use syn::parse::Parser;
 /// proc-macro based einsum
 ///
 /// ```
-/// let a = ndarray::array![[1.0, 2.0], [3.0, 4.0]];
-/// let b = ndarray::array![[1.0, 2.0], [3.0, 4.0]];
-/// let c = einsum_derive::einsum!("ij,jk->ik", a, b);
+/// use ndarray::array;
+/// use einsum_derive::einsum;
+///
+/// let a = array![
+///   [1.0, 2.0],
+///   [3.0, 4.0]
+/// ];
+/// let b = array![
+///   [1.0, 2.0],
+///   [3.0, 4.0]
+/// ];
+/// let c = einsum!("ij,jk->ik", a, b);
+/// assert_eq!(c, array![
+///   [6.0, 8.0],
+///   [12.0, 16.0]
+/// ]);
 /// ```
 ///
-/// Number of input mismatch causes compile error:
+/// This proc-macro wil compile the input subscripts `"ij,jk->ik"`
+/// to generate Rust code executing corresponding operation.
+///
+/// If the subscripts and the number of input mismatches,
+/// this raises compile error:
 ///
 /// ```compile_fail
-/// let a = ndarray::array![[1.0, 2.0], [3.0, 4.0]];
-/// let c = einsum_derive::einsum!("ij,jk->ik", a);
+/// use ndarray::array;
+/// use einsum_derive::einsum;
+///
+/// let a = array![
+///   [1.0, 2.0],
+///   [3.0, 4.0]
+/// ];
+/// let c = einsum!("ij,jk->ik", a /* needs one more arg */);
 /// ```
 #[proc_macro_error]
 #[proc_macro]
