@@ -271,9 +271,13 @@ mod test {
         // and not be included in IR.
         let out = String::from_utf8(output.stdout).expect("rustfmt output contains non-UTF8 input");
 
-        out.strip_prefix("fn main() {\n")
-            .and_then(|out| out.strip_suffix("}\n"))
-            .unwrap()
-            .to_string()
+        let formatted_lines: Vec<&str> = out
+            .lines()
+            .filter_map(|line| match line {
+                "fn main() {" | "}" => None,
+                _ => line.strip_prefix("    "),
+            })
+            .collect();
+        formatted_lines.join("\n")
     }
 }
