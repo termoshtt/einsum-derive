@@ -22,13 +22,10 @@ pub fn ellipsis(input: &str) -> IResult<&str, Label> {
     tag("...").map(|_| Label::Ellipsis).parse(input)
 }
 
-/// Each subscript appearing in einsum, e.g. `ij`
-pub type SubScript = Vec<Label>;
-
 /// subscript = { [index] | [ellipsis] };
-pub fn subscript(input: &str) -> IResult<&str, SubScript> {
+pub fn subscript(input: &str) -> IResult<&str, Subscript> {
     many0(alt((index.map(Some), multispace1.map(|_| None))))
-        .map(|chars| chars.into_iter().flatten().collect())
+        .map(|chars| Subscript(chars.into_iter().flatten().collect()))
         .parse(input)
 }
 
@@ -72,7 +69,11 @@ mod tests {
     fn test_indices() {
         let ans = (
             "",
-            vec![Label::Index('i'), Label::Index('j'), Label::Index('k')],
+            Subscript(vec![
+                Label::Index('i'),
+                Label::Index('j'),
+                Label::Index('k'),
+            ]),
         );
         assert_eq!(subscript("ijk").finish().unwrap(), ans);
         assert_eq!(subscript("i jk").finish().unwrap(), ans);
@@ -89,10 +90,10 @@ mod tests {
                 op,
                 RawSubscripts {
                     inputs: vec![
-                        vec![Label::Index('i'), Label::Index('j')],
-                        vec![Label::Index('j'), Label::Index('k')]
+                        Subscript(vec![Label::Index('i'), Label::Index('j')]),
+                        Subscript(vec![Label::Index('j'), Label::Index('k')])
                     ],
-                    output: Some(vec![Label::Index('i'), Label::Index('k')]),
+                    output: Some(Subscript(vec![Label::Index('i'), Label::Index('k')])),
                 }
             );
         }
@@ -114,8 +115,8 @@ mod tests {
             op,
             RawSubscripts {
                 inputs: vec![
-                    vec![Label::Index('i'), Label::Index('j')],
-                    vec![Label::Index('j'), Label::Index('k')]
+                    Subscript(vec![Label::Index('i'), Label::Index('j')]),
+                    Subscript(vec![Label::Index('j'), Label::Index('k')])
                 ],
                 output: None,
             }
