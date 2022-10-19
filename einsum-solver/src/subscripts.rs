@@ -4,6 +4,7 @@ use crate::{
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
+    ops::Deref,
     str::FromStr,
 };
 
@@ -26,7 +27,26 @@ impl PartialEq<char> for Label {
 }
 
 /// Each subscript appearing in einsum, e.g. `ij`
-pub type Subscript = Vec<Label>;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Subscript(pub Vec<Label>);
+
+impl FromStr for Subscript {
+    type Err = Error;
+    fn from_str(input: &str) -> Result<Self> {
+        if let Ok((_, ss)) = parser::subscript(input) {
+            Ok(ss)
+        } else {
+            Err(Self::Err::InvalidSubScripts(input.to_string()))
+        }
+    }
+}
+
+impl Deref for Subscript {
+    type Target = [Label];
+    fn deref(&self) -> &[Label] {
+        &self.0
+    }
+}
 
 /// Einsum subscripts, e.g. `ij,jk->ik`
 #[derive(Debug, PartialEq, Eq)]
@@ -60,12 +80,12 @@ impl Subscripts {
     /// // Infer output subscripts for implicit mode
     /// let raw = RawSubscripts::from_str("ij,jk").unwrap();
     /// let subscripts = Subscripts::from_raw(raw);
-    /// assert_eq!(subscripts.output, ['i', 'k']);
+    /// assert_eq!(subscripts.output.as_ref(), ['i', 'k']);
     ///
     /// // Reordered alphabetically
     /// let raw = RawSubscripts::from_str("ji").unwrap();
     /// let subscripts = Subscripts::from_raw(raw);
-    /// assert_eq!(subscripts.output, ['i', 'j']);
+    /// assert_eq!(subscripts.output.as_ref(), ['i', 'j']);
     /// ```
     ///
     pub fn from_raw(raw: parser::RawSubscripts) -> Self {
@@ -77,16 +97,18 @@ impl Subscripts {
         }
 
         let count = count_inputs(&raw.inputs);
-        let output = count
-            .iter()
-            .filter_map(|(key, value)| {
-                if *value == 1 {
-                    Some(Label::Index(*key))
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let output = Subscript(
+            count
+                .iter()
+                .filter_map(|(key, value)| {
+                    if *value == 1 {
+                        Some(Label::Index(*key))
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+        );
         Subscripts {
             inputs: raw.inputs,
             output,
@@ -118,7 +140,7 @@ impl Subscripts {
             .into_iter()
             .filter_map(|(key, value)| if value > 1 { Some(key) } else { None })
             .collect();
-        for label in &self.output {
+        for label in self.output.as_ref() {
             if let Label::Index(c) = label {
                 subscripts.remove(c);
             }
@@ -145,7 +167,7 @@ impl Subscripts {
         let mut others = Vec::new();
         for input in &self.inputs {
             if input.iter().any(|label| *label == index) {
-                for label in input {
+                for label in input.as_ref() {
                     if let Label::Index(c) = label {
                         if *c != index {
                             intermediate.insert(c);
@@ -156,10 +178,12 @@ impl Subscripts {
                 others.push(input.clone());
             }
         }
-        let mut inputs = vec![intermediate
-            .into_iter()
-            .map(|index| Label::Index(*index))
-            .collect::<Vec<Label>>()];
+        let mut inputs = vec![Subscript(
+            intermediate
+                .into_iter()
+                .map(|index| Label::Index(*index))
+                .collect::<Vec<Label>>(),
+        )];
         for other in others {
             inputs.push(other)
         }
@@ -187,7 +211,7 @@ impl From<parser::RawSubscripts> for Subscripts {
 fn count_inputs(inputs: &[Subscript]) -> BTreeMap<char, u32> {
     let mut count = BTreeMap::new();
     for input in inputs {
-        for label in input {
+        for label in input.as_ref() {
             match label {
                 Label::Index(c) => count.entry(*c).and_modify(|n| *n += 1).or_insert(1),
                 Label::Ellipsis => continue,

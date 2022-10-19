@@ -22,14 +22,15 @@ pub fn ellipsis(input: &str) -> IResult<&str, Label> {
     tag("...").map(|_| Label::Ellipsis).parse(input)
 }
 
-/// Each subscript appearing in einsum, e.g. `ij`
-pub type SubScript = Vec<Label>;
-
 /// subscript = { [index] | [ellipsis] };
-pub fn subscript(input: &str) -> IResult<&str, SubScript> {
-    many0(alt((index.map(Some), multispace1.map(|_| None))))
-        .map(|chars| chars.into_iter().flatten().collect())
-        .parse(input)
+pub fn subscript(input: &str) -> IResult<&str, Subscript> {
+    many0(alt((
+        index.map(Some),
+        ellipsis.map(Some),
+        multispace1.map(|_| None),
+    )))
+    .map(|labels| Subscript(labels.into_iter().flatten().collect()))
+    .parse(input)
 }
 
 /// Einsum subscripts, e.g. `ij,jk->ik`
@@ -72,12 +73,34 @@ mod tests {
     fn test_indices() {
         let ans = (
             "",
-            vec![Label::Index('i'), Label::Index('j'), Label::Index('k')],
+            Subscript(vec![
+                Label::Index('i'),
+                Label::Index('j'),
+                Label::Index('k'),
+            ]),
         );
         assert_eq!(subscript("ijk").finish().unwrap(), ans);
         assert_eq!(subscript("i jk").finish().unwrap(), ans);
         assert_eq!(subscript("ij k").finish().unwrap(), ans);
         assert_eq!(subscript("i j k").finish().unwrap(), ans);
+    }
+
+    #[test]
+    fn test_ellipsis() {
+        let (res, out) = subscript("i...j").finish().unwrap();
+        assert_eq!(
+            out,
+            Subscript(vec![Label::Index('i'), Label::Ellipsis, Label::Index('j'),])
+        );
+        assert_eq!(res, "");
+
+        let (res, out) = subscript("...").finish().unwrap();
+        assert_eq!(out, Subscript(vec![Label::Ellipsis,]));
+        assert_eq!(res, "");
+
+        let (res, out) = subscript("...j").finish().unwrap();
+        assert_eq!(out, Subscript(vec![Label::Ellipsis, Label::Index('j'),]));
+        assert_eq!(res, "");
     }
 
     #[test]
@@ -89,10 +112,10 @@ mod tests {
                 op,
                 RawSubscripts {
                     inputs: vec![
-                        vec![Label::Index('i'), Label::Index('j')],
-                        vec![Label::Index('j'), Label::Index('k')]
+                        Subscript(vec![Label::Index('i'), Label::Index('j')]),
+                        Subscript(vec![Label::Index('j'), Label::Index('k')])
                     ],
-                    output: Some(vec![Label::Index('i'), Label::Index('k')]),
+                    output: Some(Subscript(vec![Label::Index('i'), Label::Index('k')])),
                 }
             );
         }
@@ -114,10 +137,23 @@ mod tests {
             op,
             RawSubscripts {
                 inputs: vec![
-                    vec![Label::Index('i'), Label::Index('j')],
-                    vec![Label::Index('j'), Label::Index('k')]
+                    Subscript(vec![Label::Index('i'), Label::Index('j')]),
+                    Subscript(vec![Label::Index('j'), Label::Index('k')])
                 ],
                 output: None,
+            }
+        );
+
+        // with ...
+        let (_, op) = subscripts("i...,i...->...").finish().unwrap();
+        assert_eq!(
+            op,
+            RawSubscripts {
+                inputs: vec![
+                    Subscript(vec![Label::Index('i'), Label::Ellipsis]),
+                    Subscript(vec![Label::Index('i'), Label::Ellipsis])
+                ],
+                output: Some(Subscript(vec![Label::Ellipsis]))
             }
         );
     }
