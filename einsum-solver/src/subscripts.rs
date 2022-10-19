@@ -4,6 +4,7 @@ use crate::{
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
+    ops::Deref,
     str::FromStr,
 };
 
@@ -26,10 +27,21 @@ impl PartialEq<char> for Label {
 }
 
 /// Each subscript appearing in einsum, e.g. `ij`
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Subscript(pub Vec<Label>);
 
-impl std::ops::Deref for Subscript {
+impl FromStr for Subscript {
+    type Err = Error;
+    fn from_str(input: &str) -> Result<Self> {
+        if let Ok((_, ss)) = parser::subscript(input) {
+            Ok(ss)
+        } else {
+            Err(Self::Err::InvalidSubScripts(input.to_string()))
+        }
+    }
+}
+
+impl Deref for Subscript {
     type Target = [Label];
     fn deref(&self) -> &[Label] {
         &self.0
@@ -68,12 +80,12 @@ impl Subscripts {
     /// // Infer output subscripts for implicit mode
     /// let raw = RawSubscripts::from_str("ij,jk").unwrap();
     /// let subscripts = Subscripts::from_raw(raw);
-    /// assert_eq!(subscripts.output, ['i', 'k']);
+    /// assert_eq!(subscripts.output.as_ref(), ['i', 'k']);
     ///
     /// // Reordered alphabetically
     /// let raw = RawSubscripts::from_str("ji").unwrap();
     /// let subscripts = Subscripts::from_raw(raw);
-    /// assert_eq!(subscripts.output, ['i', 'j']);
+    /// assert_eq!(subscripts.output.as_ref(), ['i', 'j']);
     /// ```
     ///
     pub fn from_raw(raw: parser::RawSubscripts) -> Self {

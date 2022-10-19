@@ -24,9 +24,13 @@ pub fn ellipsis(input: &str) -> IResult<&str, Label> {
 
 /// subscript = { [index] | [ellipsis] };
 pub fn subscript(input: &str) -> IResult<&str, Subscript> {
-    many0(alt((index.map(Some), multispace1.map(|_| None))))
-        .map(|chars| Subscript(chars.into_iter().flatten().collect()))
-        .parse(input)
+    many0(alt((
+        index.map(Some),
+        ellipsis.map(Some),
+        multispace1.map(|_| None),
+    )))
+    .map(|labels| Subscript(labels.into_iter().flatten().collect()))
+    .parse(input)
 }
 
 /// Einsum subscripts, e.g. `ij,jk->ik`
@@ -82,6 +86,24 @@ mod tests {
     }
 
     #[test]
+    fn test_ellipsis() {
+        let (res, out) = subscript("i...j").finish().unwrap();
+        assert_eq!(
+            out,
+            Subscript(vec![Label::Index('i'), Label::Ellipsis, Label::Index('j'),])
+        );
+        assert_eq!(res, "");
+
+        let (res, out) = subscript("...").finish().unwrap();
+        assert_eq!(out, Subscript(vec![Label::Ellipsis,]));
+        assert_eq!(res, "");
+
+        let (res, out) = subscript("...j").finish().unwrap();
+        assert_eq!(out, Subscript(vec![Label::Ellipsis, Label::Index('j'),]));
+        assert_eq!(res, "");
+    }
+
+    #[test]
     fn test_operator() {
         fn test(input: &str) {
             dbg!(input);
@@ -119,6 +141,19 @@ mod tests {
                     Subscript(vec![Label::Index('j'), Label::Index('k')])
                 ],
                 output: None,
+            }
+        );
+
+        // with ...
+        let (_, op) = subscripts("i...,i...->...").finish().unwrap();
+        assert_eq!(
+            op,
+            RawSubscripts {
+                inputs: vec![
+                    Subscript(vec![Label::Index('i'), Label::Ellipsis]),
+                    Subscript(vec![Label::Index('i'), Label::Ellipsis])
+                ],
+                output: Some(Subscript(vec![Label::Ellipsis]))
             }
         );
     }
