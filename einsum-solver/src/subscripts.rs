@@ -48,6 +48,14 @@ impl Deref for Subscript {
     }
 }
 
+impl<'a> IntoIterator for &'a Subscript {
+    type Item = &'a Label;
+    type IntoIter = std::slice::Iter<'a, Label>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
 /// Einsum subscripts, e.g. `ij,jk->ik`
 #[derive(Debug, PartialEq, Eq)]
 pub struct Subscripts {
