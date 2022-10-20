@@ -88,12 +88,12 @@ impl Subscripts {
     /// // Infer output subscripts for implicit mode
     /// let raw = RawSubscripts::from_str("ij,jk").unwrap();
     /// let subscripts = Subscripts::from_raw(raw);
-    /// assert_eq!(subscripts.output.as_ref(), ['i', 'k']);
+    /// assert_eq!(subscripts.output, ['i', 'k']);
     ///
     /// // Reordered alphabetically
     /// let raw = RawSubscripts::from_str("ji").unwrap();
     /// let subscripts = Subscripts::from_raw(raw);
-    /// assert_eq!(subscripts.output.as_ref(), ['i', 'j']);
+    /// assert_eq!(subscripts.output, ['i', 'j']);
     /// ```
     ///
     pub fn from_raw(raw: parser::RawSubscripts) -> Self {
@@ -148,7 +148,7 @@ impl Subscripts {
             .into_iter()
             .filter_map(|(key, value)| if value > 1 { Some(key) } else { None })
             .collect();
-        for label in self.output.as_ref() {
+        for label in &self.output {
             if let Label::Index(c) = label {
                 subscripts.remove(c);
             }
@@ -175,7 +175,7 @@ impl Subscripts {
         let mut others = Vec::new();
         for input in &self.inputs {
             if input.iter().any(|label| *label == index) {
-                for label in input.as_ref() {
+                for label in input {
                     if let Label::Index(c) = label {
                         if *c != index {
                             intermediate.insert(c);
@@ -219,7 +219,7 @@ impl From<parser::RawSubscripts> for Subscripts {
 fn count_inputs(inputs: &[Subscript]) -> BTreeMap<char, u32> {
     let mut count = BTreeMap::new();
     for input in inputs {
-        for label in input.as_ref() {
+        for label in input {
             match label {
                 Label::Index(c) => count.entry(*c).and_modify(|n| *n += 1).or_insert(1),
                 Label::Ellipsis => continue,
