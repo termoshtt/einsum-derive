@@ -56,6 +56,12 @@ impl<'a> IntoIterator for &'a Subscript {
     }
 }
 
+impl<const N: usize> PartialEq<[char; N]> for Subscript {
+    fn eq(&self, other: &[char; N]) -> bool {
+        PartialEq::eq(&self.0, other)
+    }
+}
+
 /// Einsum subscripts, e.g. `ij,jk->ik`
 #[derive(Debug, PartialEq, Eq)]
 pub struct Subscripts {
