@@ -76,7 +76,7 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
         for label in &subscripts.inputs[argc] {
             match label {
                 Label::Index(i) => {
-                    index.push(quote::format_ident!("{}", i));
+                    index.push(index_ident(*i));
                 }
                 _ => unimplemented!(),
             }
@@ -99,9 +99,9 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
     for label in &subscripts.output {
         match label {
             Label::Index(i) => {
-                let index = quote::format_ident!("{}", i);
+                let index = index_ident(*i);
                 output_indices.push(index.clone());
-                let n = quote::format_ident!("n_{}", i);
+                let n = n_ident(*i);
                 for_lambda.push(Box::new(
                     move |inner: TokenStream2| quote! { for #index in 0..#n { #inner } },
                 ));
@@ -110,8 +110,8 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
         }
     }
     for i in subscripts.contraction_indices() {
-        let index = quote::format_ident!("{}", i);
-        let n = quote::format_ident!("n_{}", i);
+        let index = index_ident(i);
+        let n = n_ident(i);
         for_lambda.push(Box::new(
             move |inner: TokenStream2| quote! { for #index in 0..#n { #inner } },
         ));
@@ -167,7 +167,7 @@ fn pre_requirements(subscripts: &Subscripts, args: &[syn::Expr]) -> Vec<TokenStr
         for label in &subscripts.inputs[argc] {
             match label {
                 Label::Index(i) => {
-                    index.push(quote::format_ident!("{}", i));
+                    index.push(index_ident(*i));
                     let n = n_each_ident(argc, *i);
                     match n_idents.entry(*i) {
                         Entry::Occupied(entry) => {
@@ -205,7 +205,7 @@ fn def_output_array(subscripts: &Subscripts) -> TokenStream2 {
     let mut n_output = Vec::new();
     for label in &subscripts.output {
         match label {
-            Label::Index(i) => n_output.push(quote::format_ident!("n_{}", i)),
+            Label::Index(i) => n_output.push(n_ident(*i)),
             _ => unimplemented!(),
         }
     }
@@ -216,6 +216,10 @@ fn def_output_array(subscripts: &Subscripts) -> TokenStream2 {
 
 fn output_ident() -> syn::Ident {
     quote::format_ident!("out")
+}
+
+fn index_ident(i: char) -> syn::Ident {
+    quote::format_ident!("{}", i)
 }
 
 fn n_ident(i: char) -> syn::Ident {
