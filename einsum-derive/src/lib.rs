@@ -66,6 +66,8 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
     }
 
     let pre_requirements_tt = pre_requirements(&subscripts, &args);
+    let output_ident = output_ident();
+    let output_tt = def_output_array(&subscripts);
 
     let mut inner_args_tt = Vec::new();
     for argc in 0..args.len() {
@@ -83,19 +85,6 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
             #name[(#(#index),*)]
         })
     }
-
-    // Define output array
-    let output_ident = quote::format_ident!("out");
-    let mut n_output = Vec::new();
-    for label in &subscripts.output {
-        match label {
-            Label::Index(i) => n_output.push(quote::format_ident!("n_{}", i)),
-            _ => unimplemented!(),
-        }
-    }
-    let output_tt = quote! {
-        let mut #output_ident = ndarray::Array::<f64, _>::zeros((#(#n_output),*));
-    };
 
     // Compute contraction
     let mut inner_mul = None;
@@ -179,7 +168,7 @@ fn pre_requirements(subscripts: &Subscripts, args: &[syn::Expr]) -> Vec<TokenStr
             match label {
                 Label::Index(i) => {
                     index.push(quote::format_ident!("{}", i));
-                    let n = quote::format_ident!("n_{}_{}", argc, i);
+                    let n = n_each_ident(argc, *i);
                     match n_idents.entry(*i) {
                         Entry::Occupied(entry) => {
                             let n_ = entry.get();
@@ -188,7 +177,7 @@ fn pre_requirements(subscripts: &Subscripts, args: &[syn::Expr]) -> Vec<TokenStr
                             });
                         }
                         Entry::Vacant(entry) => {
-                            let n_ident = quote::format_ident!("n_{}", i);
+                            let n_ident = n_ident(*i);
                             def_or_assert.push(quote! {
                                 let #n_ident = #n;
                             });
@@ -208,6 +197,33 @@ fn pre_requirements(subscripts: &Subscripts, args: &[syn::Expr]) -> Vec<TokenStr
     }
 
     pre_requirements_tt
+}
+
+fn def_output_array(subscripts: &Subscripts) -> TokenStream2 {
+    // Define output array
+    let output_ident = output_ident();
+    let mut n_output = Vec::new();
+    for label in &subscripts.output {
+        match label {
+            Label::Index(i) => n_output.push(quote::format_ident!("n_{}", i)),
+            _ => unimplemented!(),
+        }
+    }
+    quote! {
+        let mut #output_ident = ndarray::Array::<f64, _>::zeros((#(#n_output),*));
+    }
+}
+
+fn output_ident() -> syn::Ident {
+    quote::format_ident!("out")
+}
+
+fn n_ident(i: char) -> syn::Ident {
+    quote::format_ident!("n_{}", i)
+}
+
+fn n_each_ident(argc: usize, i: char) -> syn::Ident {
+    quote::format_ident!("n_{}_{}", argc, i)
 }
 
 fn parse_einsum_args(input: TokenStream2) -> (String, Vec<syn::Expr>) {
