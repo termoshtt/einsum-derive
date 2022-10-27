@@ -65,67 +65,20 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
         abort_call_site!("Argument number mismatch");
     }
 
-    // Generate pre-requirement parts:
-    //
-    // - Define variable for input tensor expression
-    //   ```
-    //   let arg0 = a;
-    //   ```
-    //
-    // - Define size of dimensions for each input tensors
-    //   ```
-    //   let (n_0_i, n_0_j) = arg0.dim();
-    //   ```
-    //
-    // - Set global size if not defined
-    //   ```
-    //   let n_i = n_0_i;
-    //   ```
-    //
-    // - Or insert runtime check of sizes
-    //   ```
-    //   assert_eq!(n_i, n_1_i);
-    //   ```
-    //
-    let mut n_idents: HashMap<char, proc_macro2::Ident> = HashMap::new();
-    let mut pre_requirements_tt = Vec::new();
+    let pre_requirements_tt = pre_requirements(&subscripts, &args);
+
     let mut inner_args_tt = Vec::new();
     for argc in 0..args.len() {
         let name = quote::format_ident!("arg{}", argc);
-        let arg = &args[argc];
         let mut index = Vec::new();
-        let mut n_index_each = Vec::new();
-        let mut def_or_assert = Vec::new();
         for label in &subscripts.inputs[argc] {
             match label {
                 Label::Index(i) => {
                     index.push(quote::format_ident!("{}", i));
-                    let n = quote::format_ident!("n_{}_{}", argc, i);
-                    match n_idents.entry(*i) {
-                        Entry::Occupied(entry) => {
-                            let n_ = entry.get();
-                            def_or_assert.push(quote! {
-                                assert_eq!(#n_, #n);
-                            });
-                        }
-                        Entry::Vacant(entry) => {
-                            let n_ident = quote::format_ident!("n_{}", i);
-                            def_or_assert.push(quote! {
-                                let #n_ident = #n;
-                            });
-                            entry.insert(n_ident);
-                        }
-                    }
-                    n_index_each.push(n);
                 }
                 _ => unimplemented!(),
             }
         }
-        pre_requirements_tt.push(quote! {
-            let #name = #arg;
-            let (#(#n_index_each),*) = #name.dim();
-            #( #def_or_assert )*
-        });
         inner_args_tt.push(quote! {
             #name[(#(#index),*)]
         })
@@ -136,7 +89,7 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
     let mut n_output = Vec::new();
     for label in &subscripts.output {
         match label {
-            Label::Index(i) => n_output.push(n_idents.get(i).expect_or_abort("")),
+            Label::Index(i) => n_output.push(quote::format_ident!("n_{}", i)),
             _ => unimplemented!(),
         }
     }
@@ -189,6 +142,72 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
             #output_ident
         }
     }
+}
+
+// Generate pre-requirement parts:
+//
+// - Define variable for input tensor expression
+//   ```
+//   let arg0 = a;
+//   ```
+//
+// - Define size of dimensions for each input tensors
+//   ```
+//   let (n_0_i, n_0_j) = arg0.dim();
+//   ```
+//
+// - Set global size if not defined
+//   ```
+//   let n_i = n_0_i;
+//   ```
+//
+// - Or insert runtime check of sizes
+//   ```
+//   assert_eq!(n_i, n_1_i);
+//   ```
+//
+fn pre_requirements(subscripts: &Subscripts, args: &[syn::Expr]) -> Vec<TokenStream2> {
+    let mut n_idents: HashMap<char, proc_macro2::Ident> = HashMap::new();
+    let mut pre_requirements_tt = Vec::new();
+    for argc in 0..args.len() {
+        let name = quote::format_ident!("arg{}", argc);
+        let arg = &args[argc];
+        let mut index = Vec::new();
+        let mut n_index_each = Vec::new();
+        let mut def_or_assert = Vec::new();
+        for label in &subscripts.inputs[argc] {
+            match label {
+                Label::Index(i) => {
+                    index.push(quote::format_ident!("{}", i));
+                    let n = quote::format_ident!("n_{}_{}", argc, i);
+                    match n_idents.entry(*i) {
+                        Entry::Occupied(entry) => {
+                            let n_ = entry.get();
+                            def_or_assert.push(quote! {
+                                assert_eq!(#n_, #n);
+                            });
+                        }
+                        Entry::Vacant(entry) => {
+                            let n_ident = quote::format_ident!("n_{}", i);
+                            def_or_assert.push(quote! {
+                                let #n_ident = #n;
+                            });
+                            entry.insert(n_ident);
+                        }
+                    }
+                    n_index_each.push(n);
+                }
+                _ => unimplemented!(),
+            }
+        }
+        pre_requirements_tt.push(quote! {
+            let #name = #arg;
+            let (#(#n_index_each),*) = #name.dim();
+            #( #def_or_assert )*
+        });
+    }
+
+    pre_requirements_tt
 }
 
 fn parse_einsum_args(input: TokenStream2) -> (String, Vec<syn::Expr>) {
