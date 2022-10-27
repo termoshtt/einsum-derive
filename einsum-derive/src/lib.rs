@@ -68,32 +68,33 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
     let pre_requirements_tt = pre_requirements(&subscripts, &args);
     let output_ident = output_ident();
     let output_tt = def_output_array(&subscripts);
+    let contraction_tt = contraction(&subscripts, &args);
 
-    let mut inner_args_tt = Vec::new();
-    for argc in 0..args.len() {
-        let name = quote::format_ident!("arg{}", argc);
-        let mut index = Vec::new();
-        for label in &subscripts.inputs[argc] {
-            match label {
-                Label::Index(i) => {
-                    index.push(index_ident(*i));
-                }
-                _ => unimplemented!(),
-            }
-        }
-        inner_args_tt.push(quote! {
-            #name[(#(#index),*)]
-        })
-    }
-
-    // Compute contraction
-    let mut inner_mul = None;
-    for inner in inner_args_tt {
-        match inner_mul {
-            Some(i) => inner_mul = Some(quote! { #i * #inner }),
-            None => inner_mul = Some(inner),
+    quote! {
+        {
+            #(#pre_requirements_tt)*
+            #output_tt
+            #contraction_tt
+            #output_ident
         }
     }
+}
+
+/// Generate contraction parts, e.g.
+///
+/// ```ignore
+/// for i in 0..n_i {
+///     for k in 0..n_k {
+///         for j in 0..n_j {
+///             out[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
+///         }
+///     }
+/// }
+/// ```
+///
+fn contraction(subscripts: &Subscripts, args: &[syn::Expr]) -> TokenStream2 {
+    let output_ident = output_ident();
+
     let mut output_indices = Vec::new();
     let mut for_lambda: Vec<Box<dyn FnOnce(TokenStream2) -> TokenStream2>> = Vec::new();
     for label in &subscripts.output {
@@ -116,6 +117,31 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
             move |inner: TokenStream2| quote! { for #index in 0..#n { #inner } },
         ));
     }
+
+    let mut inner_args_tt = Vec::new();
+    for argc in 0..args.len() {
+        let name = arg_ident(argc);
+        let mut index = Vec::new();
+        for label in &subscripts.inputs[argc] {
+            match label {
+                Label::Index(i) => {
+                    index.push(index_ident(*i));
+                }
+                _ => unimplemented!(),
+            }
+        }
+        inner_args_tt.push(quote! {
+            #name[(#(#index),*)]
+        })
+    }
+    let mut inner_mul = None;
+    for inner in inner_args_tt {
+        match inner_mul {
+            Some(i) => inner_mul = Some(quote! { #i * #inner }),
+            None => inner_mul = Some(inner),
+        }
+    }
+
     let mut contraction_tt = quote! {
         #output_ident[(#(#output_indices),*)] = #inner_mul;
     };
@@ -123,14 +149,7 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
         contraction_tt = l(contraction_tt);
     }
 
-    quote! {
-        {
-            #(#pre_requirements_tt)*
-            #output_tt
-            #contraction_tt
-            #output_ident
-        }
-    }
+    contraction_tt
 }
 
 // Generate pre-requirement parts:
@@ -159,7 +178,7 @@ fn pre_requirements(subscripts: &Subscripts, args: &[syn::Expr]) -> Vec<TokenStr
     let mut n_idents: HashMap<char, proc_macro2::Ident> = HashMap::new();
     let mut pre_requirements_tt = Vec::new();
     for argc in 0..args.len() {
-        let name = quote::format_ident!("arg{}", argc);
+        let name = arg_ident(argc);
         let arg = &args[argc];
         let mut index = Vec::new();
         let mut n_index_each = Vec::new();
@@ -228,6 +247,10 @@ fn n_ident(i: char) -> syn::Ident {
 
 fn n_each_ident(argc: usize, i: char) -> syn::Ident {
     quote::format_ident!("n_{}_{}", argc, i)
+}
+
+fn arg_ident(argc: usize) -> syn::Ident {
+    quote::format_ident!("arg{}", argc)
 }
 
 fn parse_einsum_args(input: TokenStream2) -> (String, Vec<syn::Expr>) {
