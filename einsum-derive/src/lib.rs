@@ -80,44 +80,30 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
     }
 }
 
-/// Generate contraction parts, e.g.
+/// Generate for loop
 ///
 /// ```ignore
-/// for i in 0..n_i {
-///     for k in 0..n_k {
-///         for j in 0..n_j {
-///             out[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
+/// for #index0 in 0..#n0 {
+///     for #index1 in 0..#n1 {
+///         for #index2 in 0..#n2 {
+///            #inner
 ///         }
 ///     }
 /// }
 /// ```
-///
-fn contraction(subscripts: &Subscripts, args: &[syn::Expr]) -> TokenStream2 {
-    let output_ident = output_ident();
-
-    let mut output_indices = Vec::new();
-    let mut for_lambda: Vec<Box<dyn FnOnce(TokenStream2) -> TokenStream2>> = Vec::new();
-    for label in &subscripts.output {
-        match label {
-            Label::Index(i) => {
-                let index = index_ident(*i);
-                output_indices.push(index.clone());
-                let n = n_ident(*i);
-                for_lambda.push(Box::new(
-                    move |inner: TokenStream2| quote! { for #index in 0..#n { #inner } },
-                ));
-            }
-            _ => unimplemented!(),
-        }
-    }
-    for i in subscripts.contraction_indices() {
+fn contraction_for(indices: &[char], inner: TokenStream2) -> TokenStream2 {
+    let mut tt = inner;
+    for &i in indices.iter().rev() {
         let index = index_ident(i);
         let n = n_ident(i);
-        for_lambda.push(Box::new(
-            move |inner: TokenStream2| quote! { for #index in 0..#n { #inner } },
-        ));
+        tt = quote! {
+            for #index in 0..#n { #tt }
+        };
     }
+    tt
+}
 
+fn contraction_inner(subscripts: &Subscripts, args: &[syn::Expr]) -> TokenStream2 {
     let mut inner_args_tt = Vec::new();
     for argc in 0..args.len() {
         let name = arg_ident(argc);
@@ -142,14 +128,49 @@ fn contraction(subscripts: &Subscripts, args: &[syn::Expr]) -> TokenStream2 {
         }
     }
 
-    let mut contraction_tt = quote! {
+    let output_ident = output_ident();
+    let mut output_indices = Vec::new();
+    for label in &subscripts.output {
+        match label {
+            Label::Index(i) => {
+                let index = index_ident(*i);
+                output_indices.push(index.clone());
+            }
+            _ => unimplemented!(),
+        }
+    }
+    quote! {
         #output_ident[(#(#output_indices),*)] = #inner_mul;
-    };
-    for l in for_lambda.into_iter().rev() {
-        contraction_tt = l(contraction_tt);
+    }
+}
+
+/// Generate contraction parts, e.g.
+///
+/// ```ignore
+/// for i in 0..n_i {
+///     for k in 0..n_k {
+///         for j in 0..n_j {
+///             out[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
+///         }
+///     }
+/// }
+/// ```
+///
+fn contraction(subscripts: &Subscripts, args: &[syn::Expr]) -> TokenStream2 {
+    let mut indices: Vec<char> = subscripts
+        .output
+        .iter()
+        .flat_map(|label| match label {
+            Label::Index(i) => Some(*i),
+            _ => None,
+        })
+        .collect();
+    for i in subscripts.contraction_indices() {
+        indices.push(i);
     }
 
-    contraction_tt
+    let inner = contraction_inner(subscripts, args);
+    contraction_for(&indices, inner)
 }
 
 // Generate pre-requirement parts:
