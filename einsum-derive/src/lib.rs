@@ -2,7 +2,7 @@
 
 use einsum_solver::subscripts::{Label, Subscripts};
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_error::{abort_call_site, proc_macro_error, OptionExt, ResultExt};
 use quote::quote;
 use std::{
@@ -70,8 +70,11 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
     let output_tt = def_output_array(&subscripts);
     let contraction_tt = contraction(&subscripts, &args);
 
+    let einsum_fn = def_einsum_fn(&subscripts);
+
     quote! {
         {
+            #einsum_fn
             #(#pre_requirements_tt)*
             #output_tt
             #contraction_tt
@@ -252,6 +255,47 @@ fn def_output_array(subscripts: &Subscripts) -> TokenStream2 {
     quote! {
         let mut #output_ident = ndarray::Array::<f64, _>::zeros((#(#n_output),*));
     }
+}
+
+fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
+    let fn_name = syn::Ident::new(&format!("{}", subscripts), Span::call_site());
+    let n = subscripts.inputs.len();
+
+    let args: Vec<syn::Ident> = (0..n).map(|n| arg_ident(n)).collect();
+    let storages: Vec<syn::Ident> = (0..n).map(|n| quote::format_ident!("S{}", n)).collect();
+    let dims: Vec<syn::Path> = subscripts
+        .inputs
+        .iter()
+        .map(|ss| {
+            dim(ss
+                .iter()
+                .filter(|label| matches!(label, Label::Index(_)))
+                .count())
+        })
+        .collect();
+
+    let out_dim = dim(subscripts
+        .output
+        .iter()
+        .filter(|label| matches!(label, Label::Index(_)))
+        .count());
+
+    quote! {
+        fn #fn_name<T, #(#storages),*>(
+            #( #args: ndarray::ArrayBase<#storages, #dims> ),*
+        ) -> ndarray::Array<T, #out_dim>
+        where
+            T: ndarray::LinalgScalar,
+            #( #storages: ndarray::Data<Elem = T> ),*
+        {
+            todo!()
+        }
+    }
+}
+
+fn dim(n: usize) -> syn::Path {
+    let ix = quote::format_ident!("Ix{}", n);
+    syn::parse_quote! { ndarray::#ix }
 }
 
 fn output_ident() -> syn::Ident {
