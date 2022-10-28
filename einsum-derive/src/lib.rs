@@ -232,7 +232,7 @@ fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
     let fn_name = syn::Ident::new(&format!("{}", subscripts), Span::call_site());
     let n = subscripts.inputs.len();
 
-    let args: Vec<syn::Ident> = (0..n).map(|n| arg_ident(n)).collect();
+    let args: Vec<syn::Ident> = (0..n).map(arg_ident).collect();
     let storages: Vec<syn::Ident> = (0..n).map(|n| quote::format_ident!("S{}", n)).collect();
     let dims: Vec<syn::Path> = subscripts
         .inputs
@@ -251,10 +251,10 @@ fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
         .filter(|label| matches!(label, Label::Index(_)))
         .count());
 
-    let array_size = array_size(&subscripts);
+    let array_size = array_size(subscripts);
     let output_ident = output_ident();
-    let output_tt = def_output_array(&subscripts);
-    let contraction_tt = contraction(&subscripts);
+    let output_tt = def_output_array(subscripts);
+    let contraction_tt = contraction(subscripts);
 
     quote! {
         fn #fn_name<T, #(#storages),*>(
