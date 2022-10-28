@@ -4,6 +4,7 @@ use crate::{
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
+    fmt,
     ops::Deref,
     str::FromStr,
 };
@@ -15,6 +16,15 @@ pub enum Label {
     Index(char),
     /// Ellipsis `...` representing broadcast
     Ellipsis,
+}
+
+impl fmt::Display for Label {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Label::Index(i) => write!(f, "{}", i),
+            Label::Ellipsis => write!(f, "___"),
+        }
+    }
 }
 
 impl PartialEq<char> for Label {
@@ -69,6 +79,25 @@ pub struct Subscripts {
     pub inputs: Vec<Subscript>,
     /// Output subscript.
     pub output: Subscript,
+}
+
+// `Display` implementation is designed to use function name.
+// This is not injective, e.g. `i...,j->ij` and `i,...j->ij`
+// returns a same result `i____j__ij`.
+impl fmt::Display for Subscripts {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for input in &self.inputs {
+            for label in input.as_ref() {
+                write!(f, "{}", label)?;
+            }
+            write!(f, "_")?;
+        }
+        write!(f, "_")?;
+        for label in self.output.as_ref() {
+            write!(f, "{}", label)?;
+        }
+        Ok(())
+    }
 }
 
 impl Subscripts {
@@ -233,4 +262,27 @@ fn count_inputs(inputs: &[Subscript]) -> BTreeMap<char, u32> {
         }
     }
     count
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn display() {
+        let subscripts = Subscripts::from_str("ij,jk->ik").unwrap();
+        assert_eq!(format!("{}", subscripts), "ij_jk__ik");
+
+        // implicit mode
+        let subscripts = Subscripts::from_str("ij,jk").unwrap();
+        assert_eq!(format!("{}", subscripts), "ij_jk__ik");
+
+        // output scalar
+        let subscripts = Subscripts::from_str("i,i").unwrap();
+        assert_eq!(format!("{}", subscripts), "i_i__");
+
+        // ellipsis
+        let subscripts = Subscripts::from_str("ij...,jk...->ik...").unwrap();
+        assert_eq!(format!("{}", subscripts), "ij____jk_____ik___");
+    }
 }
