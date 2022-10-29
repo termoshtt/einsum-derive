@@ -2,7 +2,7 @@ einsum-derive
 ===============
 [![master](https://img.shields.io/badge/docs-master-blue)](https://termoshtt.github.io/einsum-derive/einsum_derive/index.html)
 
-WIP: proc-macro based einsum implementation for rust-ndarray
+Proc-macro based einsum implementation for rust-ndarray
 
 Links
 ------
