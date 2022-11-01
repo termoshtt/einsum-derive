@@ -180,11 +180,11 @@ fn array_size(subscripts: &Subscripts) -> Vec<TokenStream2> {
         let mut index = Vec::new();
         let mut n_index_each = Vec::new();
         let mut def_or_assert = Vec::new();
-        for label in &subscripts.inputs[argc] {
+        for (m, label) in subscripts.inputs[argc].iter().enumerate() {
             match label {
                 Label::Index(i) => {
                     index.push(index_ident(*i));
-                    let n = n_each_ident(argc, *i);
+                    let n = n_each_ident(argc, m);
                     match n_idents.entry(*i) {
                         Entry::Occupied(entry) => {
                             let n_ = entry.get();
@@ -289,7 +289,7 @@ fn n_ident(i: char) -> syn::Ident {
     quote::format_ident!("n_{}", i)
 }
 
-fn n_each_ident(argc: usize, i: char) -> syn::Ident {
+fn n_each_ident(argc: usize, i: usize) -> syn::Ident {
     quote::format_ident!("n_{}_{}", argc, i)
 }
 
@@ -339,12 +339,12 @@ mod test {
                 S0: ndarray::Data<Elem = T>,
                 S1: ndarray::Data<Elem = T>,
             {
-                let (n_0_i, n_0_j) = arg0.dim();
-                let n_i = n_0_i;
-                let n_j = n_0_j;
-                let (n_1_j, n_1_k) = arg1.dim();
-                assert_eq!(n_j, n_1_j);
-                let n_k = n_1_k;
+                let (n_0_0, n_0_1) = arg0.dim();
+                let n_i = n_0_0;
+                let n_j = n_0_1;
+                let (n_1_0, n_1_1) = arg1.dim();
+                assert_eq!(n_j, n_1_0);
+                let n_k = n_1_1;
                 let mut out = ndarray::Array::zeros((n_i, n_k));
                 for i in 0..n_i {
                     for k in 0..n_k {
