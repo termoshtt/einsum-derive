@@ -15,6 +15,7 @@ syn = "1.0.102"
 [dev-dependencies]
 insta = "1.21.0"
 ndarray = "0.15.6"
+trybuild = "1.0.71"
 
 [dependencies.einsum-solver]
 path = "../einsum-solver"
