@@ -18,12 +18,12 @@ use crate::subscripts::*;
 /// = \sum_{k \in K} \sum_{j \in J} a_{ij} b_{jk} c_{kl}
 /// $$
 /// and we can recover their range from the "type" of tensors
-/// if we are ruled to sum only against all indices.
+/// if we are ruled to sum only along all indices.
 ///
 /// However, we have to determine the order to evaluate these terms on computer.
 /// For fixed tensor terms, the order of summation is represented
 /// by a list of indices to be summed up; `['j', 'k']` means
-/// first sums against `j` and then sums against `k`:
+/// first sums along `j` and then sums along `k`:
 /// $$
 /// \sum_{k \in K} \sum_{j \in J} a_{ij} b_{jk} c_{kl}
 /// $$
@@ -31,6 +31,24 @@ use crate::subscripts::*;
 /// $$
 /// \sum_{j \in J} \sum_{k \in K} a_{ij} b_{jk} c_{kl}
 /// $$
+///
+/// Partial summation
+/// ------------------
+/// The ordered partial summation reduces number of floating point operations.
+/// For simplicity, both addition `+` and multiplication `*` are counted as 1 operation,
+/// and do not consider fused multiplication-addition (FMA).
+/// In the above example, there are $\\#K \times \\#J$ addition
+/// and $2 \times \\#K \times \\#J$ multiplications,
+/// where $\\#$ denotes the number of elements in the index sets.
+///
+/// When we sum up partial along `j` and store its result as $d_{ik}$:
+///
+/// $$
+/// \sum_{k \in K} c_{kl} d_{ik},
+/// \text{where} \space d_{ik} = \sum_{j \in J} a_{ij} b_{jk},
+/// $$
+///
+/// there are only $2\\#K + 2\\#J$ operations.
 ///
 /// Intermediate storage
 /// --------------------
