@@ -195,9 +195,19 @@ impl Subscripts {
     /// use einsum_solver::subscripts::*;
     /// use std::str::FromStr;
     ///
-    /// let subscripts = Subscripts::from_str("ij,jk,kl->il").unwrap();
-    /// let contracted = subscripts.contracted('j').unwrap();
-    /// assert_eq!(contracted, Subscripts::from_str("ik,kl->il").unwrap());
+    /// let base = Subscripts::from_str("ij,jk,kl->il").unwrap();
+    ///
+    /// // j -> k
+    /// let j_contracted = base.contracted('j').unwrap();
+    /// assert_eq!(j_contracted, Subscripts::from_str("ik,kl->il").unwrap());
+    /// let jk_contracted = j_contracted.contracted('k').unwrap();
+    /// assert_eq!(jk_contracted, Subscripts::from_str("il->il").unwrap());
+    ///
+    /// // k -> j
+    /// let k_contracted = base.contracted('k').unwrap();
+    /// assert_eq!(k_contracted, Subscripts::from_str("jl,ij->il").unwrap());
+    /// let kj_contracted = k_contracted.contracted('j').unwrap();
+    /// assert_eq!(kj_contracted, Subscripts::from_str("il->il").unwrap());
     /// ```
     pub fn contracted(&self, index: char) -> Result<Self> {
         if !self.contraction_indices().contains(&index) {
