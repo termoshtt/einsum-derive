@@ -1,3 +1,4 @@
+//! Einsum subscripts, e.g. `ij,jk->ik`
 use crate::parser;
 use anyhow::{bail, Error, Result};
 use std::{
@@ -189,7 +190,13 @@ impl Subscripts {
         subscripts
     }
 
+    #[cfg_attr(doc, katexit::katexit)]
     /// Evaluate contracted indices
+    ///
+    /// The memorized storage is placed on the first of input.
+    /// For example, the indices of memorized storage of $j$-contraction
+    /// for `ij,jk,kl->il` will be `ik`,
+    /// and this function yields subscript `ik,kl->il` instead of `kl,ik->il`.
     ///
     /// ```
     /// use einsum_solver::subscripts::*;

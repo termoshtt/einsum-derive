@@ -1,4 +1,4 @@
-//! Parse einsum subscripts, e.g. `ij,jk->ik`
+//! Parse einsum subscripts
 //!
 //! These parsers are implemented using [nom](https://github.com/Geal/nom),
 //! and corresponding EBNF-like schema are written in each document page.
