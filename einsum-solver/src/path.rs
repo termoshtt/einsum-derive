@@ -5,9 +5,8 @@ use crate::subscripts::*;
 #[cfg_attr(doc, katexit::katexit)]
 /// Contraction path
 ///
-/// Summation order
-/// ---------------
-///
+/// Einstein summation rule
+/// ------------------------
 /// The Einstein summation rule in theoretical physics and related field
 /// eliminates the summation symbol $\sum$ from tensor terms,
 /// e.g. $\sum_{i \in I} x_i y_i$ is abbreviated into $x_i y_i$.
@@ -20,77 +19,47 @@ use crate::subscripts::*;
 /// and we can recover their range from the "type" of tensors
 /// if we are ruled to sum only along all indices.
 ///
-/// However, we have to determine the order to evaluate these terms on computer.
-/// For fixed tensor terms, the order of summation is represented
-/// by a list of indices to be summed up; `['j', 'k']` means
-/// first sums along `j` and then sums along `k`:
-/// $$
-/// \sum_{k \in K} \sum_{j \in J} a_{ij} b_{jk} c_{kl}
-/// $$
-/// and `['k', 'j']` means:
-/// $$
-/// \sum_{j \in J} \sum_{k \in K} a_{ij} b_{jk} c_{kl}
-/// $$
-///
-/// Partial summation
-/// ------------------
-/// The ordered partial summation reduces number of floating point operations.
+/// Memorize partial sum
+/// ---------------------
+/// Partial summation and its memorization reduces number of floating point operations.
 /// For simplicity, both addition `+` and multiplication `*` are counted as 1 operation,
 /// and do not consider fused multiplication-addition (FMA).
 /// In the above example, there are $\\#K \times \\#J$ addition
 /// and $2 \times \\#K \times \\#J$ multiplications,
 /// where $\\#$ denotes the number of elements in the index sets.
 ///
-/// When we sum up partial along `j` and store its result as $d_{ik}$:
-///
+/// When we sum up partially along `j`:
+/// $$
+/// \sum_{k \in K} c_{kl} \left( \sum_{j \in J} a_{ij} b_{jk} \right),
+/// $$
+/// and memorize its result as $d_{ik}$:
 /// $$
 /// \sum_{k \in K} c_{kl} d_{ik},
 /// \text{where} \space d_{ik} = \sum_{j \in J} a_{ij} b_{jk},
 /// $$
+/// there are only $2\\#K + 2\\#J$ operations with $\\#I \times \\#K$
+/// memorization storage.
 ///
-/// there are only $2\\#K + 2\\#J$ operations.
+/// Summation order
+/// ----------------
+/// This crate assumes that all indices are summed with memorization,
+/// and this struct represents the order of summation.
+/// For fixed tensor terms, the order of summation is represented
+/// by a list of indices to be summed up; `['j', 'k']` means
+/// first sums along `j` and then sums along `k` in above example:
+/// $$
+/// \sum_{k \in K} c_{kl} M_{ik}^{(j)},
+/// \text{where} \space M_{ik}^{(j)} = \sum_{j \in J} a_{ij} b_{jk},
+/// $$
+/// and `['k', 'j']` means:
+/// $$
+/// \sum_{j \in J} a_{ij} M_{jl}^{(k)},
+/// \text{where} \space M_{jl}^{(k)} = \sum_{k \in K} b_{jk} c_{kl}
+/// $$
+/// We denote the memorized partial sum tensor as $M_{ik}^{(j)}$.
 ///
-/// Intermediate storage
-/// --------------------
-/// Intermediate tensors appear when we execute summation in some order.
-/// For example, while we compute above `['j', 'k']` case, there are two tensors,
-/// $j$-contracted tensor:
-/// $$
-/// I_{ikl}^{(j)} = \sum_{j \in J} a_{ij} b_{jk} c_{kl}
-/// $$
-/// and $j, k$-contracted tensor:
-/// $$
-/// I_{il}^{(j, k)} = \sum_{k \in K} \sum_{j \in J} a_{ij} b_{jk} c_{kl}.
-/// $$
-/// Another $k$-contracted tensor appears while we compute `['k', 'j']` case:
-/// $$
-/// I_{ijl}^{(k)} = \sum_{k \in K} a_{ij} b_{jk} c_{kl}.
-/// $$
-/// These tensors may has larger size than input tensors.
-/// Denoting the size of set and the number of elements in tensor by $\\#$,
-/// i.e. $\\#a = \\#I \times \\#J$, the size of these tensors are following:
-/// $$
-/// \begin{align*}
-///   \\# I_{ikl}^{(j)} &= \\#I \times \\#K \times \\#L, \\\\
-///   \\# I_{ijl}^{(k)} &= \\#I \times \\#J \times \\#L, \\\\
-///   \\# I_{il}^{(j, k)} &= \\#I \times \\#L.
-/// \end{align*}
-/// $$
-///
-/// We may consider algorithm not to allocate large memories while computing
-/// the final tensors depending on the target tensors.
-/// In this case, since `['j', 'k']` case corresponds to a three matrix product
-/// $(AB)C$ and `['k', 'j']` corresponds to $A(BC)$,
-/// we can compute the final result by only storing $AB$ or $BC$,
-/// which is smaller than $I_{ikl}^{(j)}$ or $I_{ijl}^{(k)}$.
-/// In terms of $I$, this corresponds to define
-/// $$
-/// I_{ik}^{(j)} = \sum_{j \in J} a_{ij} b_{jk}
-/// $$
-/// and put $I_{ikl}^{(j)} = I_{ik}^{(j)} c_{kl}$ (we do not sum up $k$ here).
-/// We can put $c_{kl}$ out of $I_{ik}^{(j)}$ because $c_{kl}$ does not contain
-/// the index $j$,
-/// and this elimination can be determined only from the indices of tensors.
+/// We can easily find that $c_{kl}$ or $a_{ij}$ can be put out of the inner summation
+/// since we know matrix-multiplication is associative $ABC = (AB)C = A(BC)$.
 /// For more complicated case, e.g. computing `j` contraction of `ijk,klj,km->ilm`,
 /// we will check the input indices:
 ///
@@ -98,7 +67,7 @@ use crate::subscripts::*;
 /// - `klj` contains `j`
 /// - `km` does not contain `j`
 ///
-/// and then compute the indices of intermediate tensor
+/// and then compute the indices of intermediate tensor by
 /// $$
 /// \left(
 ///   \\{ i, j, k \\} \cup \\{ k, l, j\\}
@@ -106,7 +75,7 @@ use crate::subscripts::*;
 /// \setminus j
 /// = \\{ i, k, l\\},
 /// $$
-/// to store $I_{ikl}^{(j)}$ instead of $I_{iklm}^{(j)}$.
+/// i.e. memorize $M_{ikl}^{(j)}$ instead of $M_{iklm}^{(j)}$.
 ///
 #[derive(Debug, PartialEq, Eq)]
 pub struct Path {
