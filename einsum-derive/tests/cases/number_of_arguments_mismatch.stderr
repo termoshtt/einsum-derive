@@ -5,3 +5,9 @@ error: Argument number mismatch: subscripts (2), args (1)
   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |
   = note: this error originates in the macro `einsum` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: expected expression, found end of macro arguments
+ --> tests/cases/number_of_arguments_mismatch.rs:6:13
+  |
+6 |     let c = einsum!("ij,jk->ik", a /* needs one more arg */);
+  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
