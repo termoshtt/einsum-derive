@@ -8,19 +8,44 @@
 //! Einstein summation rule
 //! ------------------------
 //! The Einstein summation rule in theoretical physics and related field
-//! eliminates the summation symbol $\sum$ from tensor terms,
-//! e.g. $\sum_{i \in I} x_i y_i$ is abbreviated into $x_i y_i$.
-//! This is based on the fact that we can exchange the summation order
-//! if their ranges are finite:
+//! including machine learning is a rule for abbreviating tensor operations.
+//! For example, one of most basic tensor operation is inner product of
+//! two vectors in $n$-dimensional Euclidean space $x, y \in \mathbb{R}^n$:
 //! $$
-//! \sum_{j \in J} \sum_{k \in K} a_{ij} b_{jk} c_{kl}
-//! = \sum_{k \in K} \sum_{j \in J} a_{ij} b_{jk} c_{kl}
+//! (x, y) = \sum_{i \in I} x_i y_i
 //! $$
-//! and we can recover their range from the "type" of tensors
-//! if we are ruled to sum only along all indices.
+//! where $I$ denotes a set of indices, i.e. $I = \\{0, 1, \ldots, n-1 \\}$.
+//! Another example is matrix multiplications.
+//! A multiplication of three square matrices $A, B, C \in M_n(\mathbb{R})$
+//! can be written as its element:
+//! $$
+//! ABC_{il} = \sum_{j \in J} \sum_{k \in K} a_{ij} b_{jk} c_{kl}
+//! $$
 //!
-//! Memorize partial sum
-//! ---------------------
+//! Many such tensor operations appear in various field,
+//! and we usually define many functions corresponding to each operations.
+//! For inner product of vectors, we may defines a function like
+//! ```ignore
+//! fn inner(a: Array1D<R>, b: Array1D<R>) -> R;
+//! ```
+//! for matrix multiplication:
+//! ```ignore
+//! fn matmul(a: Array2D<R>, b: Array2D<R>) -> Array2D<R>;
+//! ```
+//! or taking three matrices:
+//! ```ignore
+//! fn matmul3(a: Array2D<R>, b: Array2D<R>, c: Array2D<R>) -> Array2D<R>;
+//! ```
+//! and so on.
+//!
+//! These definitions are very similar, and actually,
+//! they can be represented in a single manner.
+//!
+//! einsum algorithm
+//! -----------------
+//! We discuss an overview of einsum algorithm for understanding the structure of this crate.
+//!
+//! ### Memorize partial sum
 //! Partial summation and its memorization reduces number of floating point operations.
 //! For simplicity, both addition `+` and multiplication `*` are counted as 1 operation,
 //! and do not consider fused multiplication-addition (FMA).
@@ -40,8 +65,7 @@
 //! there are only $2\\#K + 2\\#J$ operations with $\\#I \times \\#K$
 //! memorization storage.
 //!
-//! Summation order
-//! ----------------
+//! ### Summation order
 //! This crate assumes that all indices are summed with memorization,
 //! and this struct represents the order of summation.
 //! For fixed tensor terms, the order of summation is represented
