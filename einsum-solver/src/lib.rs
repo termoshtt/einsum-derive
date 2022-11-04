@@ -5,8 +5,8 @@
 #![cfg_attr(doc, katexit::katexit)]
 //! Helper crate for einsum algorithm
 //!
-//! Einstein summation rule
-//! ------------------------
+//! Introduction to einsum algorithm
+//! ---------------------------------
 //! The Einstein summation rule in theoretical physics and related field
 //! including machine learning is a rule for abbreviating tensor operations.
 //! For example, one of most basic tensor operation is inner product of
@@ -40,6 +40,21 @@
 //!
 //! These definitions are very similar, and actually,
 //! they can be represented in a single manner.
+//! These computations multiplicate the element of each tensor with some indices,
+//! and sum up them along some indices.
+//! So we have to determine
+//!
+//! - what indices to be used for each tensors in multiplications
+//! - what indices to be summed up
+//!
+//! This can be done by ordering indices for input tensors
+//! with a Einstein summation rule, i.e. sum up indices which appears more than once.
+//! For example, `inner` is represented by `i,i`, `matmul` is represented by `ij,jk`,
+//! `matmul3` is represented by `ij,jk,kl`, and so on
+//! where `,` is the separator of each indices
+//! and each index must be represented by a single char like `i` or `j`.
+//! "einsum" is an algorithm or runtime to be expand such string
+//! into actual tensor operations.
 //!
 //! einsum algorithm
 //! -----------------
