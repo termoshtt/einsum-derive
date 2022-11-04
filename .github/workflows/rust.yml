@@ -14,12 +14,11 @@ jobs:
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: nightly
-        override: true
-        default: true
         components: rustfmt
     - uses: actions-rs/cargo@v1
       with:
         command: test
+        toolchain: nightly
 
   check-format:
     runs-on: ubuntu-22.04
@@ -28,6 +27,7 @@ jobs:
     - uses: actions-rs/cargo@v1
       with:
         command: fmt
+        toolchain: stable
         args: -- --check
 
   clippy:
@@ -37,3 +37,4 @@ jobs:
     - uses: actions-rs/cargo@v1
       with:
         command: clippy
+        toolchain: stable
