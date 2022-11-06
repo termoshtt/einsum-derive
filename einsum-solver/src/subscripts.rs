@@ -4,7 +4,6 @@ use anyhow::{bail, Error, Result};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt,
-    ops::Deref,
     str::FromStr,
 };
 
@@ -35,59 +34,23 @@ impl PartialEq<char> for Label {
     }
 }
 
-/// Each subscript appearing in einsum, e.g. `ij`
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Subscript(pub Vec<Label>);
-
-impl FromStr for Subscript {
-    type Err = Error;
-    fn from_str(input: &str) -> Result<Self> {
-        if let Ok((_, ss)) = parser::subscript(input) {
-            Ok(ss)
-        } else {
-            bail!("Invalid subscript: {}", input);
-        }
-    }
-}
-
-impl Deref for Subscript {
-    type Target = [Label];
-    fn deref(&self) -> &[Label] {
-        &self.0
-    }
-}
-
-impl<'a> IntoIterator for &'a Subscript {
-    type Item = &'a Label;
-    type IntoIter = std::slice::Iter<'a, Label>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
-    }
-}
-
-impl<const N: usize> PartialEq<[char; N]> for Subscript {
-    fn eq(&self, other: &[char; N]) -> bool {
-        PartialEq::eq(&self.0, other)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Subscript_ {
+pub enum Subscript {
     /// Indices without ellipsis, e.g. `ijk`
     Indices(Vec<char>),
     /// Indices with ellipsis, e.g. `i...j`
     Ellipsis { start: Vec<char>, end: Vec<char> },
 }
 
-impl fmt::Display for Subscript_ {
+impl fmt::Display for Subscript {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Subscript_::Indices(indices) => {
+            Subscript::Indices(indices) => {
                 for i in indices {
                     write!(f, "{}", i)?;
                 }
             }
-            Subscript_::Ellipsis { start, end } => {
+            Subscript::Ellipsis { start, end } => {
                 for i in start {
                     write!(f, "{}", i)?;
                 }
@@ -116,15 +79,10 @@ pub struct Subscripts {
 impl fmt::Display for Subscripts {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for input in &self.inputs {
-            for label in input.as_ref() {
-                write!(f, "{}", label)?;
-            }
+            write!(f, "{}", input)?;
             write!(f, "_")?;
         }
-        write!(f, "_")?;
-        for label in self.output.as_ref() {
-            write!(f, "{}", label)?;
-        }
+        write!(f, "_{}", self.output)?;
         Ok(())
     }
 }
@@ -168,7 +126,7 @@ impl Subscripts {
             };
         }
 
-        let count = count_inputs(&raw.inputs);
+        let count = count_indices(&raw.inputs);
         let output = Subscript(
             count
                 .iter()
@@ -207,7 +165,7 @@ impl Subscripts {
     /// assert_eq!(subscripts.contraction_indices(), btreeset!{});
     /// ```
     pub fn contraction_indices(&self) -> BTreeSet<char> {
-        let count = count_inputs(&self.inputs);
+        let count = count_indices(&self.inputs);
         let mut subscripts: BTreeSet<char> = count
             .into_iter()
             .filter_map(|(key, value)| if value > 1 { Some(key) } else { None })
@@ -296,14 +254,20 @@ impl From<parser::RawSubscripts> for Subscripts {
     }
 }
 
-fn count_inputs(inputs: &[Subscript]) -> BTreeMap<char, u32> {
+fn count_indices(inputs: &[Subscript]) -> BTreeMap<char, u32> {
     let mut count = BTreeMap::new();
     for input in inputs {
-        for label in input {
-            match label {
-                Label::Index(c) => count.entry(*c).and_modify(|n| *n += 1).or_insert(1),
-                Label::Ellipsis => continue,
-            };
+        match input {
+            Subscript::Indices(indices) => {
+                for c in indices {
+                    count.entry(*c).and_modify(|n| *n += 1).or_insert(1);
+                }
+            }
+            Subscript::Ellipsis { start, end } => {
+                for c in start.iter().chain(end.iter()) {
+                    count.entry(*c).and_modify(|n| *n += 1).or_insert(1);
+                }
+            }
         }
     }
     count

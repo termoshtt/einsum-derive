@@ -7,8 +7,8 @@
 use crate::subscripts::*;
 use anyhow::{bail, Error, Result};
 use nom::{
-    branch::*, bytes::complete::*, character::complete::*, combinator::*, multi::*, sequence::*,
-    IResult, Parser,
+    bytes::complete::*, character::complete::*, combinator::*, multi::*, sequence::*, IResult,
+    Parser,
 };
 
 /// index = `a` | `b` | `c` | `d` | `e` | `f` | `g` | `h` | `i` | `j` | `k` | `l` |`m` | `n` | `o` | `p` | `q` | `r` | `s` | `t` | `u` | `v` | `w` | `x` |`y` | `z`;
@@ -21,15 +21,17 @@ pub fn ellipsis(input: &str) -> IResult<&str, Label> {
     tag("...").map(|_| Label::Ellipsis).parse(input)
 }
 
-/// subscript = { [index] | [ellipsis] };
+/// subscript = { [index] } [ [ellipsis] { [index] } ];
 pub fn subscript(input: &str) -> IResult<&str, Subscript> {
-    many0(alt((
-        index.map(|c| Some(Label::Index(c))),
-        ellipsis.map(Some),
-        multispace1.map(|_| None),
-    )))
-    .map(|labels| Subscript(labels.into_iter().flatten().collect()))
-    .parse(input)
+    let mut indices = many0(tuple((multispace0, index)).map(|(_space, c)| c));
+    let (input, start) = indices(input)?;
+    let (input, end) = opt(tuple((multispace0, ellipsis, multispace0, indices))
+        .map(|(_space_pre, _ellipsis, _space_post, output)| output))(input)?;
+    if let Some(end) = end {
+        Ok((input, Subscript::Ellipsis { start, end }))
+    } else {
+        Ok((input, Subscript::Indices(start)))
+    }
 }
 
 /// Einsum subscripts, e.g. `ij,jk->ik`
@@ -62,19 +64,6 @@ pub fn subscripts(input: &str) -> IResult<&str, RawSubscripts> {
     Ok((input, RawSubscripts { inputs, output }))
 }
 
-/// subscript_ = { [index] } [ [ellipsis] { [index] } ];
-pub fn subscript_(input: &str) -> IResult<&str, Subscript_> {
-    let mut indices = many0(tuple((multispace0, index)).map(|(_space, c)| c));
-    let (input, start) = indices(input)?;
-    let (input, end) = opt(tuple((multispace0, ellipsis, multispace0, indices))
-        .map(|(_space_pre, _ellipsis, _space_post, output)| output))(input)?;
-    if let Some(end) = end {
-        Ok((input, Subscript_::Ellipsis { start, end }))
-    } else {
-        Ok((input, Subscript_::Indices(start)))
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
@@ -99,62 +88,44 @@ mod tests {
 
     #[test]
     fn test_subscript() {
-        let (res, out) = subscript("i...j").finish().unwrap();
-        assert_eq!(
-            out,
-            Subscript(vec![Label::Index('i'), Label::Ellipsis, Label::Index('j'),])
-        );
+        let (res, out) = subscript("ijk").finish().unwrap();
+        assert_eq!(out, Subscript::Indices(vec!['i', 'j', 'k']));
         assert_eq!(res, "");
 
         let (res, out) = subscript("...").finish().unwrap();
-        assert_eq!(out, Subscript(vec![Label::Ellipsis,]));
-        assert_eq!(res, "");
-
-        let (res, out) = subscript("...j").finish().unwrap();
-        assert_eq!(out, Subscript(vec![Label::Ellipsis, Label::Index('j'),]));
-        assert_eq!(res, "");
-    }
-
-    #[test]
-    fn test_subscript_() {
-        let (res, out) = subscript_("ijk").finish().unwrap();
-        assert_eq!(out, Subscript_::Indices(vec!['i', 'j', 'k']));
-        assert_eq!(res, "");
-
-        let (res, out) = subscript_("...").finish().unwrap();
         assert_eq!(
             out,
-            Subscript_::Ellipsis {
+            Subscript::Ellipsis {
                 start: Vec::new(),
                 end: Vec::new()
             }
         );
         assert_eq!(res, "");
 
-        let (res, out) = subscript_("i...").finish().unwrap();
+        let (res, out) = subscript("i...").finish().unwrap();
         assert_eq!(
             out,
-            Subscript_::Ellipsis {
+            Subscript::Ellipsis {
                 start: vec!['i'],
                 end: Vec::new()
             }
         );
         assert_eq!(res, "");
 
-        let (res, out) = subscript_("...j").finish().unwrap();
+        let (res, out) = subscript("...j").finish().unwrap();
         assert_eq!(
             out,
-            Subscript_::Ellipsis {
+            Subscript::Ellipsis {
                 start: Vec::new(),
                 end: vec!['j'],
             }
         );
         assert_eq!(res, "");
 
-        let (res, out) = subscript_("i...j").finish().unwrap();
+        let (res, out) = subscript("i...j").finish().unwrap();
         assert_eq!(
             out,
-            Subscript_::Ellipsis {
+            Subscript::Ellipsis {
                 start: vec!['i'],
                 end: vec!['j'],
             }
