@@ -71,6 +71,36 @@ impl<const N: usize> PartialEq<[char; N]> for Subscript {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Subscript_ {
+    /// Indices without ellipsis, e.g. `ijk`
+    Indices(Vec<char>),
+    /// Indices with ellipsis, e.g. `i...j`
+    Ellipsis { start: Vec<char>, end: Vec<char> },
+}
+
+impl fmt::Display for Subscript_ {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Subscript_::Indices(indices) => {
+                for i in indices {
+                    write!(f, "{}", i)?;
+                }
+            }
+            Subscript_::Ellipsis { start, end } => {
+                for i in start {
+                    write!(f, "{}", i)?;
+                }
+                write!(f, "...")?;
+                for i in end {
+                    write!(f, "{}", i)?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Einsum subscripts, e.g. `ij,jk->ik`
 #[derive(Debug, PartialEq, Eq)]
 pub struct Subscripts {

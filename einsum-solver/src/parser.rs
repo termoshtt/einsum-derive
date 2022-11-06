@@ -62,14 +62,6 @@ pub fn subscripts(input: &str) -> IResult<&str, RawSubscripts> {
     Ok((input, RawSubscripts { inputs, output }))
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Subscript_ {
-    /// Indices without ellipsis, e.g. `ijk`
-    Indices(Vec<char>),
-    /// Indices with ellipsis, e.g. `i...j`
-    Ellipsis { start: Vec<char>, end: Vec<char> },
-}
-
 /// subscript_ = { [index] } [ [ellipsis] { [index] } ];
 pub fn subscript_(input: &str) -> IResult<&str, Subscript_> {
     let mut indices = many0(tuple((multispace0, index)).map(|(_space, c)| c));
