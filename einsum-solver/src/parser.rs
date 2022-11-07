@@ -71,22 +71,6 @@ mod tests {
     use nom::Finish;
 
     #[test]
-    fn test_indices() {
-        let ans = (
-            "",
-            Subscript(vec![
-                Label::Index('i'),
-                Label::Index('j'),
-                Label::Index('k'),
-            ]),
-        );
-        assert_eq!(subscript("ijk").finish().unwrap(), ans);
-        assert_eq!(subscript("i jk").finish().unwrap(), ans);
-        assert_eq!(subscript("ij k").finish().unwrap(), ans);
-        assert_eq!(subscript("i j k").finish().unwrap(), ans);
-    }
-
-    #[test]
     fn test_subscript() {
         let (res, out) = subscript("ijk").finish().unwrap();
         assert_eq!(out, Subscript::Indices(vec!['i', 'j', 'k']));
@@ -142,10 +126,10 @@ mod tests {
                 op,
                 RawSubscripts {
                     inputs: vec![
-                        Subscript(vec![Label::Index('i'), Label::Index('j')]),
-                        Subscript(vec![Label::Index('j'), Label::Index('k')])
+                        Subscript::Indices(vec!['i', 'j']),
+                        Subscript::Indices(vec!['j', 'k'])
                     ],
-                    output: Some(Subscript(vec![Label::Index('i'), Label::Index('k')])),
+                    output: Some(Subscript::Indices(vec!['i', 'k'])),
                 }
             );
         }
@@ -167,8 +151,8 @@ mod tests {
             op,
             RawSubscripts {
                 inputs: vec![
-                    Subscript(vec![Label::Index('i'), Label::Index('j')]),
-                    Subscript(vec![Label::Index('j'), Label::Index('k')])
+                    Subscript::Indices(vec!['i', 'j']),
+                    Subscript::Indices(vec!['j', 'k'])
                 ],
                 output: None,
             }
@@ -180,10 +164,19 @@ mod tests {
             op,
             RawSubscripts {
                 inputs: vec![
-                    Subscript(vec![Label::Index('i'), Label::Ellipsis]),
-                    Subscript(vec![Label::Index('i'), Label::Ellipsis])
+                    Subscript::Ellipsis {
+                        start: vec!['i'],
+                        end: Vec::new()
+                    },
+                    Subscript::Ellipsis {
+                        start: vec!['i'],
+                        end: Vec::new()
+                    }
                 ],
-                output: Some(Subscript(vec![Label::Ellipsis]))
+                output: Some(Subscript::Ellipsis {
+                    start: Vec::new(),
+                    end: Vec::new()
+                })
             }
         );
     }
