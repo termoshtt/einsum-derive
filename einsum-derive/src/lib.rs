@@ -1,6 +1,6 @@
 //! proc-macro based einsum implementation
 
-use einsum_solver::subscripts::{Label, Subscripts};
+use einsum_solver::subscripts::Subscripts;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_error::{abort_call_site, proc_macro_error, OptionExt, ResultExt};
@@ -107,13 +107,8 @@ fn contraction_inner(subscripts: &Subscripts) -> TokenStream2 {
     for argc in 0..subscripts.inputs.len() {
         let name = arg_ident(argc);
         let mut index = Vec::new();
-        for label in &subscripts.inputs[argc] {
-            match label {
-                Label::Index(i) => {
-                    index.push(index_ident(*i));
-                }
-                _ => unimplemented!(),
-            }
+        for i in subscripts.inputs[argc].indices() {
+            index.push(index_ident(i));
         }
         inner_args_tt.push(quote! {
             #name[(#(#index),*)]
@@ -129,14 +124,9 @@ fn contraction_inner(subscripts: &Subscripts) -> TokenStream2 {
 
     let output_ident = output_ident();
     let mut output_indices = Vec::new();
-    for label in &subscripts.output {
-        match label {
-            Label::Index(i) => {
-                let index = index_ident(*i);
-                output_indices.push(index.clone());
-            }
-            _ => unimplemented!(),
-        }
+    for i in &subscripts.output.indices() {
+        let index = index_ident(*i);
+        output_indices.push(index.clone());
     }
     quote! {
         #output_ident[(#(#output_indices),*)] = #inner_mul;
@@ -156,14 +146,7 @@ fn contraction_inner(subscripts: &Subscripts) -> TokenStream2 {
 /// ```
 ///
 fn contraction(subscripts: &Subscripts) -> TokenStream2 {
-    let mut indices: Vec<char> = subscripts
-        .output
-        .iter()
-        .flat_map(|label| match label {
-            Label::Index(i) => Some(*i),
-            _ => None,
-        })
-        .collect();
+    let mut indices: Vec<char> = subscripts.output.indices();
     for i in subscripts.contraction_indices() {
         indices.push(i);
     }
@@ -180,30 +163,25 @@ fn array_size(subscripts: &Subscripts) -> Vec<TokenStream2> {
         let mut index = Vec::new();
         let mut n_index_each = Vec::new();
         let mut def_or_assert = Vec::new();
-        for (m, label) in subscripts.inputs[argc].iter().enumerate() {
-            match label {
-                Label::Index(i) => {
-                    index.push(index_ident(*i));
-                    let n = n_each_ident(argc, m);
-                    match n_idents.entry(*i) {
-                        Entry::Occupied(entry) => {
-                            let n_ = entry.get();
-                            def_or_assert.push(quote! {
-                                assert_eq!(#n_, #n);
-                            });
-                        }
-                        Entry::Vacant(entry) => {
-                            let n_ident = n_ident(*i);
-                            def_or_assert.push(quote! {
-                                let #n_ident = #n;
-                            });
-                            entry.insert(n_ident);
-                        }
-                    }
-                    n_index_each.push(n);
+        for (m, i) in subscripts.inputs[argc].indices().into_iter().enumerate() {
+            index.push(index_ident(i));
+            let n = n_each_ident(argc, m);
+            match n_idents.entry(i) {
+                Entry::Occupied(entry) => {
+                    let n_ = entry.get();
+                    def_or_assert.push(quote! {
+                        assert_eq!(#n_, #n);
+                    });
                 }
-                _ => unimplemented!(),
+                Entry::Vacant(entry) => {
+                    let n_ident = n_ident(i);
+                    def_or_assert.push(quote! {
+                        let #n_ident = #n;
+                    });
+                    entry.insert(n_ident);
+                }
             }
+            n_index_each.push(n);
         }
         tt.push(quote! {
             let (#(#n_index_each),*) = #name.dim();
@@ -217,11 +195,8 @@ fn def_output_array(subscripts: &Subscripts) -> TokenStream2 {
     // Define output array
     let output_ident = output_ident();
     let mut n_output = Vec::new();
-    for label in &subscripts.output {
-        match label {
-            Label::Index(i) => n_output.push(n_ident(*i)),
-            _ => unimplemented!(),
-        }
+    for i in subscripts.output.indices() {
+        n_output.push(n_ident(i));
     }
     quote! {
         let mut #output_ident = ndarray::Array::zeros((#(#n_output),*));
@@ -237,19 +212,10 @@ fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
     let dims: Vec<syn::Path> = subscripts
         .inputs
         .iter()
-        .map(|ss| {
-            dim(ss
-                .iter()
-                .filter(|label| matches!(label, Label::Index(_)))
-                .count())
-        })
+        .map(|ss| dim(ss.indices().len()))
         .collect();
 
-    let out_dim = dim(subscripts
-        .output
-        .iter()
-        .filter(|label| matches!(label, Label::Index(_)))
-        .count());
+    let out_dim = dim(subscripts.output.indices().len());
 
     let array_size = array_size(subscripts);
     let output_ident = output_ident();

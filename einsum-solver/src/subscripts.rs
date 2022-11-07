@@ -42,6 +42,15 @@ pub enum Subscript {
     Ellipsis { start: Vec<char>, end: Vec<char> },
 }
 
+impl Subscript {
+    pub fn indices(&self) -> Vec<char> {
+        match self {
+            Subscript::Indices(indices) => indices.clone(),
+            Subscript::Ellipsis { start, end } => start.iter().chain(end.iter()).cloned().collect(),
+        }
+    }
+}
+
 impl fmt::Display for Subscript {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -127,16 +136,10 @@ impl Subscripts {
         }
 
         let count = count_indices(&raw.inputs);
-        let output = Subscript(
+        let output = Subscript::Indices(
             count
                 .iter()
-                .filter_map(|(key, value)| {
-                    if *value == 1 {
-                        Some(Label::Index(*key))
-                    } else {
-                        None
-                    }
-                })
+                .filter_map(|(key, value)| if *value == 1 { Some(*key) } else { None })
                 .collect(),
         );
         Subscripts {
@@ -170,10 +173,8 @@ impl Subscripts {
             .into_iter()
             .filter_map(|(key, value)| if value > 1 { Some(key) } else { None })
             .collect();
-        for label in &self.output {
-            if let Label::Index(c) = label {
-                subscripts.remove(c);
-            }
+        for c in &self.output.indices() {
+            subscripts.remove(c);
         }
         subscripts
     }
@@ -212,24 +213,18 @@ impl Subscripts {
         let mut intermediate = BTreeSet::new();
         let mut others = Vec::new();
         for input in &self.inputs {
-            if input.iter().any(|label| *label == index) {
-                for label in input {
-                    if let Label::Index(c) = label {
-                        if *c != index {
-                            intermediate.insert(c);
-                        }
+            let indices = input.indices();
+            if indices.iter().any(|label| *label == index) {
+                for c in indices {
+                    if c != index {
+                        intermediate.insert(c);
                     }
                 }
             } else {
                 others.push(input.clone());
             }
         }
-        let mut inputs = vec![Subscript(
-            intermediate
-                .into_iter()
-                .map(|index| Label::Index(*index))
-                .collect::<Vec<Label>>(),
-        )];
+        let mut inputs = vec![Subscript::Indices(intermediate.into_iter().collect())];
         for other in others {
             inputs.push(other)
         }
