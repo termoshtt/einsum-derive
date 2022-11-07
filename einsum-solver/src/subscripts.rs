@@ -63,7 +63,7 @@ impl fmt::Display for Subscript {
                 for i in start {
                     write!(f, "{}", i)?;
                 }
-                write!(f, "...")?;
+                write!(f, "___")?;
                 for i in end {
                     write!(f, "{}", i)?;
                 }

@@ -58,7 +58,7 @@ impl std::str::FromStr for RawSubscripts {
 /// subscripts = [subscript] {`,` [subscript]} \[ `->` [subscript] \]
 pub fn subscripts(input: &str) -> IResult<&str, RawSubscripts> {
     let (input, _head) = multispace0(input)?;
-    let (input, inputs) = separated_list1(char(','), subscript)(input)?;
+    let (input, inputs) = separated_list1(tuple((multispace0, char(','))), subscript)(input)?;
     let (input, output) = opt(tuple((multispace0, tag("->"), multispace0, subscript))
         .map(|(_space_pre, _arrow, _space_post, output)| output))(input)?;
     Ok((input, RawSubscripts { inputs, output }))
