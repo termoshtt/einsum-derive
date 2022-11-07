@@ -17,8 +17,8 @@ pub fn index(input: &str) -> IResult<&str, char> {
 }
 
 /// ellipsis = `...`
-pub fn ellipsis(input: &str) -> IResult<&str, Label> {
-    tag("...").map(|_| Label::Ellipsis).parse(input)
+pub fn ellipsis(input: &str) -> IResult<&str, &str> {
+    tag("...").parse(input)
 }
 
 /// subscript = { [index] } [ [ellipsis] { [index] } ];

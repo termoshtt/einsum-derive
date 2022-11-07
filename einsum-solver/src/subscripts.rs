@@ -7,33 +7,6 @@ use std::{
     str::FromStr,
 };
 
-/// Each subscript label
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Label {
-    /// Single index, e.g. `i` or `j`
-    Index(char),
-    /// Ellipsis `...` representing broadcast
-    Ellipsis,
-}
-
-impl fmt::Display for Label {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Label::Index(i) => write!(f, "{}", i),
-            Label::Ellipsis => write!(f, "___"),
-        }
-    }
-}
-
-impl PartialEq<char> for Label {
-    fn eq(&self, other: &char) -> bool {
-        match self {
-            Label::Index(i) => i == other,
-            Label::Ellipsis => false,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Subscript {
     /// Indices without ellipsis, e.g. `ijk`
