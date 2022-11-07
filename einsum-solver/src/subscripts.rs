@@ -55,6 +55,15 @@ impl fmt::Display for Subscript {
     }
 }
 
+/// Which tensor the subscript specifies
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+pub enum Position {
+    /// The tensor which user inputs as N-th argument of einsum
+    User(usize),
+    /// The tensor created by einsum in its N-th step
+    Intermidiate(usize),
+}
+
 /// Einsum subscripts, e.g. `ij,jk->ik`
 #[derive(Debug, PartialEq, Eq)]
 pub struct Subscripts {
