@@ -42,6 +42,15 @@ pub enum Subscript {
     Ellipsis { start: Vec<char>, end: Vec<char> },
 }
 
+impl<const N: usize> PartialEq<[char; N]> for Subscript {
+    fn eq(&self, other: &[char; N]) -> bool {
+        match self {
+            Subscript::Indices(indices) => indices.eq(other),
+            _ => false,
+        }
+    }
+}
+
 impl Subscript {
     pub fn indices(&self) -> Vec<char> {
         match self {
