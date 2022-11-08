@@ -80,22 +80,54 @@
 //! there are only $2\\#K + 2\\#J$ operations with $\\#I \times \\#K$
 //! memorization storage.
 //!
+//! ### Subscript representation
+//!
+//! We introduce a subscript representation for this decomposition process.
+//! First, the user input for `matmul3` case is written as following:
+//!
+//! ```text
+//! 0 | ij,jk,kl->il | a b c -> out
+//! ```
+//!
+//! This is then decomposed into two primitive processes:
+//!
+//! ```text
+//! 0 | ij,jk->ik | a b -> d
+//! 1 | ik,kl->il | d c -> out
+//! ```
+//!
+//! Each line is called "step" and represents a computation process.
+//!
+//! - Left columns represents "step id"
+//! - Center column represents what computation is executed
+//! - Right column represents which tensors are used and created on the step
+//!
+//! If such decomposition are possible for a subscripts, we call it reducible,
+//! and call it irreducible if not.
+//! When there are more than two indices to be contracted,
+//! the subscripts is reducible because it is always possible to sum up partially
+//! along one of indices.
+//! Inductively, if there are $n$ contraction indices, it is decomposed into
+//! $n$ irreducible steps.
+//!
 //! ### Summation order
-//! This crate assumes that all indices are summed with memorization,
-//! and this struct represents the order of summation.
-//! For fixed tensor terms, the order of summation is represented
-//! by a list of indices to be summed up; `['j', 'k']` means
-//! first sums along `j` and then sums along `k` in above example:
-//! $$
-//! \sum_{k \in K} c_{kl} M_{ik}^{(j)},
-//! \text{where} \space M_{ik}^{(j)} = \sum_{j \in J} a_{ij} b_{jk},
-//! $$
-//! and `['k', 'j']` means:
-//! $$
-//! \sum_{j \in J} a_{ij} M_{jl}^{(k)},
-//! \text{where} \space M_{jl}^{(k)} = \sum_{k \in K} b_{jk} c_{kl}
-//! $$
-//! We denote the memorized partial sum tensor as $M_{ik}^{(j)}$.
+//!
+//! This decomposition is not unique.
+//! Apparently, there are two ways for `matmul3` case as corresponding to $(AB)C$:
+//!
+//! ```text
+//! 0 | ij,jk->ik | a b -> d
+//! 1 | ik,kl->il | d c -> out
+//! ```
+//!
+//! and to $A(BC)$:
+//!
+//! ```text
+//! 0 | jk,kl->jl | b c -> d
+//! 1 | jl,ij->il | d a -> out
+//! ```
+//!
+//! ### Intermediate tensors
 //!
 //! We can easily find that $c_{kl}$ or $a_{ij}$ can be put out of the inner summation
 //! since we know matrix-multiplication is associative $ABC = (AB)C = A(BC)$.
