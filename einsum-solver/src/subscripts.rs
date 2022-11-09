@@ -55,6 +55,23 @@ impl fmt::Display for Subscript {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Names {
+    last: usize,
+}
+
+impl Names {
+    pub fn init() -> Self {
+        Names { last: 0 }
+    }
+
+    pub fn new(&mut self) -> Position {
+        let pos = Position::Intermidiate(self.last);
+        self.last += 1;
+        pos
+    }
+}
+
 /// Which tensor the subscript specifies
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub enum Position {
@@ -182,28 +199,29 @@ impl Subscripts {
     /// use einsum_solver::subscripts::*;
     /// use std::str::FromStr;
     ///
+    /// let mut names = Names::init();
     /// let base = Subscripts::from_str("ij,jk,kl->il").unwrap();
     ///
     /// // j -> k
-    /// let j_contracted = base.contracted('j').unwrap();
+    /// let j_contracted = base.contracted(&mut names, 'j').unwrap();
     /// assert_eq!(j_contracted, Subscripts::from_str("ik,kl->il").unwrap());
-    /// let jk_contracted = j_contracted.contracted('k').unwrap();
+    /// let jk_contracted = j_contracted.contracted(&mut names, 'k').unwrap();
     /// assert_eq!(jk_contracted, Subscripts::from_str("il->il").unwrap());
     ///
     /// // k -> j
-    /// let k_contracted = base.contracted('k').unwrap();
+    /// let k_contracted = base.contracted(&mut names, 'k').unwrap();
     /// assert_eq!(k_contracted, Subscripts::from_str("jl,ij->il").unwrap());
-    /// let kj_contracted = k_contracted.contracted('j').unwrap();
+    /// let kj_contracted = k_contracted.contracted(&mut names, 'j').unwrap();
     /// assert_eq!(kj_contracted, Subscripts::from_str("il->il").unwrap());
     /// ```
-    pub fn contracted(&self, index: char) -> Result<Self> {
+    pub fn contracted(&self, names: &mut Names, index: char) -> Result<Self> {
         if !self.contraction_indices().contains(&index) {
             bail!("Unknown index: {}", index);
         }
 
         let mut intermediate = BTreeSet::new();
         let mut others = Vec::new();
-        for (input, _pos) in &self.inputs {
+        for (input, pos) in &self.inputs {
             let indices = input.indices();
             if indices.iter().any(|label| *label == index) {
                 for c in indices {
@@ -212,15 +230,18 @@ impl Subscripts {
                     }
                 }
             } else {
-                others.push(input.clone());
+                others.push((input.clone(), pos.clone()));
             }
         }
-        let mut inputs = vec![Subscript::Indices(intermediate.into_iter().collect())];
+        let mut inputs = vec![(
+            Subscript::Indices(intermediate.into_iter().collect()),
+            names.new(),
+        )];
         for other in others {
             inputs.push(other)
         }
         Ok(Self {
-            inputs: todo!(),
+            inputs,
             output: self.output.clone(),
         })
     }
