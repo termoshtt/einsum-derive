@@ -5,8 +5,8 @@
 #![cfg_attr(doc, katexit::katexit)]
 //! Helper crate for einsum algorithm
 //!
-//! Introduction to einsum algorithm
-//! ---------------------------------
+//! Introduction to einsum
+//! -----------------------
 //! The Einstein summation rule in theoretical physics and related field
 //! including machine learning is a rule for abbreviating tensor operations.
 //! For example, one of most basic tensor operation is inner product of
@@ -60,11 +60,11 @@
 //! -----------------
 //! We discuss an overview of einsum algorithm for understanding the structure of this crate.
 //!
-//! ### Memorize partial sum
+//! ### Factorize and Memorize partial summation
 //! Partial summation and its memorization reduces number of floating point operations.
 //! For simplicity, both addition `+` and multiplication `*` are counted as 1 operation,
 //! and do not consider fused multiplication-addition (FMA).
-//! In the above example, there are $\\#K \times \\#J$ addition
+//! In the above `matmul3` example, there are $\\#K \times \\#J$ addition
 //! and $2 \times \\#K \times \\#J$ multiplications,
 //! where $\\#$ denotes the number of elements in the index sets.
 //!
@@ -79,6 +79,21 @@
 //! $$
 //! there are only $2\\#K + 2\\#J$ operations with $\\#I \times \\#K$
 //! memorization storage.
+//!
+//! When is this factorization possible? We know that above `matmul3` example
+//! is also written as associative matrix product $ABC = A(BC) = (AB)C$,
+//! and partial summation along $j$ is corresponding to store $D = AB$.
+//! This is not always possible. Let us consider a trace of two matrix product
+//! $$
+//! \text{Tr} (AB) = \sum_{i \in I} \sum_{j \in J} a_{ij} b_{ji}
+//! $$
+//! This is written as `ij,ji` in einsum subscript form.
+//! We cannot factor out both $a_{ij}$ and $b_{ji}$ out of summation
+//! since they contain both indices.
+//! Whether this factorization is possible or not can be determined only
+//! from einsum subscript form, and we call a subscript is "reducible"
+//! if factorization is possible, and "irreducible" if not possible,
+//! i.e. `ij,jk,kl` is reducible and `ij,ji` is irreducible.
 //!
 //! ### Subscript representation
 //!
