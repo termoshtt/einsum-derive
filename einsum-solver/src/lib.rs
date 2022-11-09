@@ -49,10 +49,12 @@
 //!
 //! This can be done by ordering indices for input tensors
 //! with a Einstein summation rule, i.e. sum up indices which appears more than once.
-//! For example, `inner` is represented by `i,i`, `matmul` is represented by `ij,jk`,
-//! `matmul3` is represented by `ij,jk,kl`, and so on
+//! For example, `inner` is represented by `i,i->`, `matmul` is represented by `ij,jk->ik`,
+//! `matmul3` is represented by `ij,jk,kl->il`, and so on
 //! where `,` is the separator of each indices
 //! and each index must be represented by a single char like `i` or `j`.
+//! `->` separates the indices of input tensors and indices of output tensor.
+//! If no indices are placed like `i,i->`, it means the tensor is 0-rank, i.e. a scalar value.
 //! "einsum" is an algorithm or runtime to be expand such string
 //! into actual tensor operations.
 //!
@@ -87,15 +89,23 @@
 //! $$
 //! \text{Tr} (AB) = \sum_{i \in I} \sum_{j \in J} a_{ij} b_{ji}
 //! $$
-//! This is written as `ij,ji` in einsum subscript form.
+//! This is written as `ij,ji->` in einsum subscript form.
 //! We cannot factor out both $a_{ij}$ and $b_{ji}$ out of summation
 //! since they contain both indices.
 //! Whether this factorization is possible or not can be determined only
 //! from einsum subscript form, and we call a subscript is "reducible"
 //! if factorization is possible, and "irreducible" if not possible,
-//! i.e. `ij,jk,kl` is reducible and `ij,ji` is irreducible.
+//! i.e. `ij,jk,kl->il` is reducible and `ij,ji->` is irreducible.
 //!
 //! ### Subscript representation
+//!
+//! To discuss subscript factorization, we have to track which tensors are
+//! used as each input.
+//! In above `matmul3` example, `ij,jk,kl->il` is factorized into sub-subscripts
+//! `ij,jk->ik` and `ik,kl->il` where `ik` in the second subscript uses
+//! the output of first subscript. The information of the name of tensors
+//! has been dropped from sub-subscripts,
+//! and we have to create a mechanism for managing it.
 //!
 //! We introduce a subscript representation for this decomposition process.
 //! First, the user input for `matmul3` case is written as following:
