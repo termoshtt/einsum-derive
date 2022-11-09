@@ -68,7 +68,7 @@ pub enum Position {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Subscripts {
     /// Input subscript, `ij` and `jk`
-    pub inputs: Vec<Subscript>,
+    pub inputs: Vec<(Subscript, Position)>,
     /// Output subscript.
     pub output: Subscript,
 }
@@ -78,7 +78,7 @@ pub struct Subscripts {
 // returns a same result `i____j__ij`.
 impl fmt::Display for Subscripts {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for input in &self.inputs {
+        for (input, _pos) in &self.inputs {
             write!(f, "{}", input)?;
             write!(f, "_")?;
         }
@@ -119,24 +119,24 @@ impl Subscripts {
     /// ```
     ///
     pub fn from_raw(raw: parser::RawSubscripts) -> Self {
+        let inputs = raw
+            .inputs
+            .iter()
+            .enumerate()
+            .map(|(i, input)| (input.clone(), Position::User(i)))
+            .collect();
         if let Some(output) = raw.output {
-            return Subscripts {
-                inputs: raw.inputs,
-                output,
-            };
+            return Subscripts { inputs, output };
         }
 
-        let count = count_indices(&raw.inputs);
+        let count = count_indices(raw.inputs.iter());
         let output = Subscript::Indices(
             count
                 .iter()
                 .filter_map(|(key, value)| if *value == 1 { Some(*key) } else { None })
                 .collect(),
         );
-        Subscripts {
-            inputs: raw.inputs,
-            output,
-        }
+        Subscripts { inputs, output }
     }
 
     /// Indices to be contracted
@@ -159,7 +159,7 @@ impl Subscripts {
     /// assert_eq!(subscripts.contraction_indices(), btreeset!{});
     /// ```
     pub fn contraction_indices(&self) -> BTreeSet<char> {
-        let count = count_indices(&self.inputs);
+        let count = count_indices(self.inputs.iter().map(|(input, _pos)| input));
         let mut subscripts: BTreeSet<char> = count
             .into_iter()
             .filter_map(|(key, value)| if value > 1 { Some(key) } else { None })
@@ -203,7 +203,7 @@ impl Subscripts {
 
         let mut intermediate = BTreeSet::new();
         let mut others = Vec::new();
-        for input in &self.inputs {
+        for (input, _pos) in &self.inputs {
             let indices = input.indices();
             if indices.iter().any(|label| *label == index) {
                 for c in indices {
@@ -220,7 +220,7 @@ impl Subscripts {
             inputs.push(other)
         }
         Ok(Self {
-            inputs,
+            inputs: todo!(),
             output: self.output.clone(),
         })
     }
@@ -240,7 +240,7 @@ impl From<parser::RawSubscripts> for Subscripts {
     }
 }
 
-fn count_indices(inputs: &[Subscript]) -> BTreeMap<char, u32> {
+fn count_indices<'a>(inputs: impl Iterator<Item = &'a Subscript>) -> BTreeMap<char, u32> {
     let mut count = BTreeMap::new();
     for input in inputs {
         match input {
