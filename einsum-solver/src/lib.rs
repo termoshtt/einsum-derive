@@ -107,71 +107,51 @@
 //! has been dropped from sub-subscripts,
 //! and we have to create a mechanism for managing it.
 //!
-//! We introduce a subscript representation for this decomposition process.
-//! First, the user input for `matmul3` case is written as following:
+//! We introduce a subscript representation of `matmul3` case with tensor names:
 //!
 //! ```text
-//! 0 | ij,jk,kl->il | a b c -> out
+//! ij,jk,kl->il | a b c -> out
 //! ```
 //!
-//! This is then decomposed into two primitive processes:
+//! In this form, the factorization can be described:
 //!
 //! ```text
-//! 0 | ij,jk->ik | a b -> d
-//! 1 | ik,kl->il | d c -> out
+//! ij,jk->ik | a b -> d
+//! ik,kl->il | d c -> out
 //! ```
 //!
-//! Each line is called "step" and represents a computation process.
+//! To clarify the tensor is given from user or created while factorization,
+//! we use `arg{N}` and `out{N}` identifiers:
 //!
-//! - Left columns represents "step id"
-//! - Center column represents what computation is executed
-//! - Right column represents which tensors are used and created on the step
-//!
-//! If such decomposition are possible for a subscripts, we call it reducible,
-//! and call it irreducible if not.
-//! When there are more than two indices to be contracted,
-//! the subscripts is reducible because it is always possible to sum up partially
-//! along one of indices.
-//! Inductively, if there are $n$ contraction indices, it is decomposed into
-//! $n$ irreducible steps.
+//! ```text
+//! ij,jk->ik | arg0 arg1 -> out0
+//! ik,kl->il | out0 arg2 -> out1
+//! ```
 //!
 //! ### Summation order
 //!
-//! This decomposition is not unique.
+//! This factorization is not unique.
 //! Apparently, there are two ways for `matmul3` case as corresponding to $(AB)C$:
 //!
 //! ```text
-//! 0 | ij,jk->ik | a b -> d
-//! 1 | ik,kl->il | d c -> out
+//! ij,jk->ik | arg0 arg1 -> out0
+//! ik,kl->il | out0 arg2 -> out1
 //! ```
 //!
 //! and to $A(BC)$:
 //!
 //! ```text
-//! 0 | jk,kl->jl | b c -> d
-//! 1 | jl,ij->il | d a -> out
+//! jk,kl->jl | arg1 arg2 -> out0
+//! jl,ij->il | out0 arg0 -> out1
 //! ```
 //!
-//! ### Intermediate tensors
-//!
-//! We can easily find that $c_{kl}$ or $a_{ij}$ can be put out of the inner summation
-//! since we know matrix-multiplication is associative $ABC = (AB)C = A(BC)$.
-//! For more complicated case, e.g. computing `j` contraction of `ijk,klj,km->ilm`,
-//! we will check the input indices:
-//!
-//! - `ijk` contains `j`
-//! - `klj` contains `j`
-//! - `km` does not contain `j`
-//!
-//! and then compute the indices of intermediate tensor by
-//! $$
-//! \left(
-//!   \\{ i, j, k \\} \cup \\{ k, l, j\\}
-//! \right)
-//! \setminus j
-//! = \\{ i, k, l\\},
-//! $$
-//! i.e. memorize $M_{ikl}^{(j)}$ instead of $M_{iklm}^{(j)}$.
+//! These are different procedure i.e. number of floating operations
+//! and required intermediate memories are different,
+//! but return same output tensor
+//! (we ignore non-associativity of floating numbers on this document).
+//! This becomes complicated combinational optimization problem
+//! if there are many contraction indicies,
+//! and the objective of this crate is to (heuristically) solve this problem.
 //!
 
 pub mod error;
