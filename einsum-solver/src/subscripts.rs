@@ -223,7 +223,7 @@ impl Subscripts {
     /// let base = Subscripts::from_raw_indices(&mut names, "ij,jk,kl->il").unwrap();
     ///
     /// // Factorize along j
-    /// let (ijjk, ikkl) = base.factorize(&mut names, 'j').unwrap();
+    /// let (ijjk, ikkl) = base.factorize(&mut names, 'j').unwrap().unwrap();
     ///
     /// let arg0 = &ijjk.inputs[0];
     /// assert_eq!(arg0.raw(), &RawSubscript::Indices(vec!['i', 'j']));
@@ -236,8 +236,12 @@ impl Subscripts {
     /// let out1 = &ijjk.output;
     /// assert_eq!(out1.raw(), &RawSubscript::Indices(vec!['i', 'k']));
     /// assert_eq!(out1.position(), &Position::Intermidiate(1));
+    ///
+    /// // returns `Ok(None)` if subscript is irreducible
+    /// assert!(ijjk.factorize(&mut names, 'j').unwrap().is_none());
+    /// assert!(ikkl.factorize(&mut names, 'k').unwrap().is_none());
     /// ```
-    pub fn factorize(&self, names: &mut Namespace, index: char) -> Result<(Self, Self)> {
+    pub fn factorize(&self, names: &mut Namespace, index: char) -> Result<Option<(Self, Self)>> {
         if !self.contraction_indices().contains(&index) {
             bail!("Unknown index: {}", index);
         }
@@ -258,13 +262,19 @@ impl Subscripts {
                 second.push(input.clone());
             }
         }
+
+        // irreducible
+        if second.is_empty() {
+            return Ok(None);
+        }
+
         let output = Subscript {
             raw: parser::RawSubscript::Indices(out_indices.into_iter().collect()),
             position: names.new(),
         };
 
         second.insert(0, output.clone());
-        Ok((
+        Ok(Some((
             Self {
                 inputs: first,
                 output,
@@ -273,7 +283,7 @@ impl Subscripts {
                 inputs: second,
                 output: self.output.clone(),
             },
-        ))
+        )))
     }
 }
 
