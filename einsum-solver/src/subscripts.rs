@@ -8,50 +8,27 @@ use std::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Subscript {
-    /// Indices without ellipsis, e.g. `ijk`
-    Indices(Vec<char>),
-    /// Indices with ellipsis, e.g. `i...j`
-    Ellipsis { start: Vec<char>, end: Vec<char> },
-}
-
-impl<const N: usize> PartialEq<[char; N]> for Subscript {
-    fn eq(&self, other: &[char; N]) -> bool {
-        match self {
-            Subscript::Indices(indices) => indices.eq(other),
-            _ => false,
-        }
-    }
+pub struct Subscript {
+    raw: parser::RawSubscript,
+    position: Position,
 }
 
 impl Subscript {
-    pub fn indices(&self) -> Vec<char> {
-        match self {
-            Subscript::Indices(indices) => indices.clone(),
-            Subscript::Ellipsis { start, end } => start.iter().chain(end.iter()).cloned().collect(),
-        }
+    pub fn raw(&self) -> &parser::RawSubscript {
+        &self.raw
     }
-}
 
-impl fmt::Display for Subscript {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Subscript::Indices(indices) => {
-                for i in indices {
-                    write!(f, "{}", i)?;
-                }
-            }
-            Subscript::Ellipsis { start, end } => {
-                for i in start {
-                    write!(f, "{}", i)?;
-                }
-                write!(f, "___")?;
-                for i in end {
-                    write!(f, "{}", i)?;
-                }
+    pub fn position(&self) -> &Position {
+        &self.position
+    }
+
+    pub fn indices(&self) -> Vec<char> {
+        match &self.raw {
+            parser::RawSubscript::Indices(indices) => indices.clone(),
+            parser::RawSubscript::Ellipsis { start, end } => {
+                start.iter().chain(end.iter()).cloned().collect()
             }
         }
-        Ok(())
     }
 }
 
@@ -95,7 +72,7 @@ pub enum Position {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Subscripts {
     /// Input subscript, `ij` and `jk`
-    pub inputs: Vec<(Subscript, Position)>,
+    pub inputs: Vec<Subscript>,
     /// Output subscript.
     pub output: Subscript,
 }
@@ -105,11 +82,11 @@ pub struct Subscripts {
 // returns a same result `i____j__ij`.
 impl fmt::Display for Subscripts {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for (input, _pos) in &self.inputs {
-            write!(f, "{}", input)?;
+        for input in &self.inputs {
+            write!(f, "{}", input.raw)?;
             write!(f, "_")?;
         }
-        write!(f, "_{}", self.output)?;
+        write!(f, "_{}", self.output.raw)?;
         Ok(())
     }
 }
@@ -132,38 +109,58 @@ impl Subscripts {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use einsum_solver::{subscripts::Subscripts, parser::RawSubscripts};
+    /// use einsum_solver::{subscripts::{Subscripts, Namespace}, parser::RawSubscripts};
+    ///
+    /// let mut names = Namespace::init();
     ///
     /// // Infer output subscripts for implicit mode
     /// let raw = RawSubscripts::from_str("ij,jk").unwrap();
-    /// let subscripts = Subscripts::from_raw(raw);
-    /// assert_eq!(subscripts.output, ['i', 'k']);
+    /// let subscripts = Subscripts::from_raw(&mut names, raw);
+    /// assert_eq!(subscripts.output.raw(), &['i', 'k']);
     ///
     /// // Reordered alphabetically
     /// let raw = RawSubscripts::from_str("ji").unwrap();
-    /// let subscripts = Subscripts::from_raw(raw);
-    /// assert_eq!(subscripts.output, ['i', 'j']);
+    /// let subscripts = Subscripts::from_raw(&mut names, raw);
+    /// assert_eq!(subscripts.output.raw(), &['i', 'j']);
     /// ```
     ///
-    pub fn from_raw(raw: parser::RawSubscripts) -> Self {
+    pub fn from_raw(names: &mut Namespace, raw: parser::RawSubscripts) -> Self {
         let inputs = raw
             .inputs
             .iter()
             .enumerate()
-            .map(|(i, input)| (input.clone(), Position::User(i)))
+            .map(|(i, indices)| Subscript {
+                raw: indices.clone(),
+                position: Position::User(i),
+            })
             .collect();
+        let position = names.new();
         if let Some(output) = raw.output {
-            return Subscripts { inputs, output };
+            return Subscripts {
+                inputs,
+                output: Subscript {
+                    raw: output,
+                    position,
+                },
+            };
         }
 
-        let count = count_indices(raw.inputs.iter());
-        let output = Subscript::Indices(
-            count
-                .iter()
-                .filter_map(|(key, value)| if *value == 1 { Some(*key) } else { None })
-                .collect(),
-        );
+        let count = count_indices(&inputs);
+        let output = Subscript {
+            raw: parser::RawSubscript::Indices(
+                count
+                    .iter()
+                    .filter_map(|(key, value)| if *value == 1 { Some(*key) } else { None })
+                    .collect(),
+            ),
+            position,
+        };
         Subscripts { inputs, output }
+    }
+
+    pub fn from_raw_indices(names: &mut Namespace, indices: &str) -> Result<Self> {
+        let raw = parser::RawSubscripts::from_str(indices)?;
+        Ok(Self::from_raw(names, raw))
     }
 
     /// Indices to be factorize
@@ -171,22 +168,24 @@ impl Subscripts {
     /// ```
     /// use std::str::FromStr;
     /// use maplit::btreeset;
-    /// use einsum_solver::subscripts::Subscripts;
+    /// use einsum_solver::subscripts::{Subscripts, Namespace};
+    ///
+    /// let mut names = Namespace::init();
     ///
     /// // Matrix multiplication AB
-    /// let subscripts = Subscripts::from_str("ij,jk->ik").unwrap();
+    /// let subscripts = Subscripts::from_raw_indices(&mut names, "ij,jk->ik").unwrap();
     /// assert_eq!(subscripts.contraction_indices(), btreeset!{'j'});
     ///
     /// // Reduce all Tr(AB)
-    /// let subscripts = Subscripts::from_str("ij,ji->").unwrap();
+    /// let subscripts = Subscripts::from_raw_indices(&mut names, "ij,ji->").unwrap();
     /// assert_eq!(subscripts.contraction_indices(), btreeset!{'i', 'j'});
     ///
     /// // Take diagonal elements
-    /// let subscripts = Subscripts::from_str("ii->i").unwrap();
+    /// let subscripts = Subscripts::from_raw_indices(&mut names, "ii->i").unwrap();
     /// assert_eq!(subscripts.contraction_indices(), btreeset!{});
     /// ```
     pub fn contraction_indices(&self) -> BTreeSet<char> {
-        let count = count_indices(self.inputs.iter().map(|(input, _pos)| input));
+        let count = count_indices(&self.inputs);
         let mut subscripts: BTreeSet<char> = count
             .into_iter()
             .filter_map(|(key, value)| if value > 1 { Some(key) } else { None })
@@ -221,19 +220,19 @@ impl Subscripts {
     /// use std::str::FromStr;
     ///
     /// let mut names = Namespace::init();
-    /// let base = Subscripts::from_str("ij,jk,kl->il").unwrap();
+    /// let base = Subscripts::from_raw_indices(&mut names, "ij,jk,kl->il").unwrap();
     ///
     /// // j -> k
     /// let j_contracted = base.factorize(&mut names, 'j').unwrap();
-    /// assert_eq!(j_contracted, Subscripts::from_str("ik,kl->il").unwrap());
+    /// assert_eq!(j_contracted, Subscripts::from_raw_indices(&mut names, "ik,kl->il").unwrap());
     /// let jk_contracted = j_contracted.factorize(&mut names, 'k').unwrap();
-    /// assert_eq!(jk_contracted, Subscripts::from_str("il->il").unwrap());
+    /// assert_eq!(jk_contracted, Subscripts::from_raw_indices(&mut names, "il->il").unwrap());
     ///
     /// // k -> j
     /// let k_contracted = base.factorize(&mut names, 'k').unwrap();
-    /// assert_eq!(k_contracted, Subscripts::from_str("jl,ij->il").unwrap());
+    /// assert_eq!(k_contracted, Subscripts::from_raw_indices(&mut names, "jl,ij->il").unwrap());
     /// let kj_contracted = k_contracted.factorize(&mut names, 'j').unwrap();
-    /// assert_eq!(kj_contracted, Subscripts::from_str("il->il").unwrap());
+    /// assert_eq!(kj_contracted, Subscripts::from_raw_indices(&mut names, "il->il").unwrap());
     /// ```
     pub fn factorize(&self, names: &mut Namespace, index: char) -> Result<Self> {
         if !self.contraction_indices().contains(&index) {
@@ -242,7 +241,7 @@ impl Subscripts {
 
         let mut intermediate = BTreeSet::new();
         let mut others = Vec::new();
-        for (input, pos) in &self.inputs {
+        for input in &self.inputs {
             let indices = input.indices();
             if indices.iter().any(|label| *label == index) {
                 for c in indices {
@@ -251,13 +250,13 @@ impl Subscripts {
                     }
                 }
             } else {
-                others.push((input.clone(), pos.clone()));
+                others.push(input.clone());
             }
         }
-        let mut inputs = vec![(
-            Subscript::Indices(intermediate.into_iter().collect()),
-            names.new(),
-        )];
+        let mut inputs = vec![Subscript {
+            raw: parser::RawSubscript::Indices(intermediate.into_iter().collect()),
+            position: names.new(),
+        }];
         for other in others {
             inputs.push(other)
         }
@@ -268,34 +267,11 @@ impl Subscripts {
     }
 }
 
-impl FromStr for Subscripts {
-    type Err = Error;
-    fn from_str(input: &str) -> Result<Self> {
-        let raw = parser::RawSubscripts::from_str(input)?;
-        Ok(Self::from_raw(raw))
-    }
-}
-
-impl From<parser::RawSubscripts> for Subscripts {
-    fn from(raw: parser::RawSubscripts) -> Self {
-        Self::from_raw(raw)
-    }
-}
-
-fn count_indices<'a>(inputs: impl Iterator<Item = &'a Subscript>) -> BTreeMap<char, u32> {
+fn count_indices(inputs: &[Subscript]) -> BTreeMap<char, u32> {
     let mut count = BTreeMap::new();
     for input in inputs {
-        match input {
-            Subscript::Indices(indices) => {
-                for c in indices {
-                    count.entry(*c).and_modify(|n| *n += 1).or_insert(1);
-                }
-            }
-            Subscript::Ellipsis { start, end } => {
-                for c in start.iter().chain(end.iter()) {
-                    count.entry(*c).and_modify(|n| *n += 1).or_insert(1);
-                }
-            }
+        for c in input.indices() {
+            count.entry(c).and_modify(|n| *n += 1).or_insert(1);
         }
     }
     count
@@ -307,19 +283,21 @@ mod tests {
 
     #[test]
     fn display() {
-        let subscripts = Subscripts::from_str("ij,jk->ik").unwrap();
+        let mut names = Namespace::init();
+
+        let subscripts = Subscripts::from_raw_indices(&mut names, "ij,jk->ik").unwrap();
         assert_eq!(format!("{}", subscripts), "ij_jk__ik");
 
         // implicit mode
-        let subscripts = Subscripts::from_str("ij,jk").unwrap();
+        let subscripts = Subscripts::from_raw_indices(&mut names, "ij,jk").unwrap();
         assert_eq!(format!("{}", subscripts), "ij_jk__ik");
 
         // output scalar
-        let subscripts = Subscripts::from_str("i,i").unwrap();
+        let subscripts = Subscripts::from_raw_indices(&mut names, "i,i").unwrap();
         assert_eq!(format!("{}", subscripts), "i_i__");
 
         // ellipsis
-        let subscripts = Subscripts::from_str("ij...,jk...->ik...").unwrap();
+        let subscripts = Subscripts::from_raw_indices(&mut names, "ij...,jk...->ik...").unwrap();
         assert_eq!(format!("{}", subscripts), "ij____jk_____ik___");
     }
 }

@@ -1,14 +1,11 @@
 //! proc-macro based einsum implementation
 
-use einsum_solver::subscripts::Subscripts;
+use einsum_solver::subscripts::{Namespace, Subscripts};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_error::{abort_call_site, proc_macro_error, OptionExt, ResultExt};
 use quote::quote;
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    str::FromStr,
-};
+use std::collections::{hash_map::Entry, HashMap};
 use syn::parse::Parser;
 
 /// proc-macro based einsum
@@ -58,7 +55,8 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
     let (subscripts, args) = parse_einsum_args(input);
 
     // Validate subscripts
-    let subscripts = Subscripts::from_str(&subscripts)
+    let mut names = Namespace::init();
+    let subscripts = Subscripts::from_raw_indices(&mut names, &subscripts)
         .ok()
         .expect_or_abort("Invalid subscripts");
     if subscripts.inputs.len() != args.len() {
@@ -107,7 +105,7 @@ fn contraction_inner(subscripts: &Subscripts) -> TokenStream2 {
     for argc in 0..subscripts.inputs.len() {
         let name = arg_ident(argc);
         let mut index = Vec::new();
-        for i in subscripts.inputs[argc].0.indices() {
+        for i in subscripts.inputs[argc].indices() {
             index.push(index_ident(i));
         }
         inner_args_tt.push(quote! {
@@ -163,7 +161,7 @@ fn array_size(subscripts: &Subscripts) -> Vec<TokenStream2> {
         let mut index = Vec::new();
         let mut n_index_each = Vec::new();
         let mut def_or_assert = Vec::new();
-        for (m, i) in subscripts.inputs[argc].0.indices().into_iter().enumerate() {
+        for (m, i) in subscripts.inputs[argc].indices().into_iter().enumerate() {
             index.push(index_ident(i));
             let n = n_each_ident(argc, m);
             match n_idents.entry(i) {
@@ -212,7 +210,7 @@ fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
     let dims: Vec<syn::Path> = subscripts
         .inputs
         .iter()
-        .map(|(ss, _pos)| dim(ss.indices().len()))
+        .map(|ss| dim(ss.indices().len()))
         .collect();
 
     let out_dim = dim(subscripts.output.indices().len());
@@ -288,6 +286,7 @@ mod test {
     use std::{
         io::Write,
         process::{Command, Stdio},
+        str::FromStr,
     };
 
     #[test]

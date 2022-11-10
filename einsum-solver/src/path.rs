@@ -19,9 +19,10 @@ impl Path {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use einsum_solver::{path::Path, subscripts::Subscripts};
+    /// use einsum_solver::{path::Path, subscripts::{Subscripts, Namespace}};
     ///
-    /// let subscripts = Subscripts::from_str("ij,ji->").unwrap();
+    /// let mut names = Namespace::init();
+    /// let subscripts = Subscripts::from_raw_indices(&mut names, "ij,ji->").unwrap();
     /// let path = Path::alphabetical(subscripts);
     /// assert_eq!(path.path, &['i', 'j']);
     /// ```
