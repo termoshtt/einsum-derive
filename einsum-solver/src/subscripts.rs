@@ -55,16 +55,26 @@ impl fmt::Display for Subscript {
     }
 }
 
+/// Names of tensors
+///
+/// As the crate level document explains,
+/// einsum factorization requires to track names of tensors
+/// in addition to subscripts, and this struct manages it.
+/// This works as a simple counter, which counts how many intermediate
+/// tensor denoted `out{N}` appears and issues new `out{N+1}` identifier.
+///
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Names {
+pub struct Namespace {
     last: usize,
 }
 
-impl Names {
+impl Namespace {
+    /// Create new namespace
     pub fn init() -> Self {
-        Names { last: 0 }
+        Namespace { last: 0 }
     }
 
+    /// Issue new identifier
     pub fn new(&mut self) -> Position {
         let pos = Position::Intermidiate(self.last);
         self.last += 1;
@@ -199,7 +209,7 @@ impl Subscripts {
     /// use einsum_solver::subscripts::*;
     /// use std::str::FromStr;
     ///
-    /// let mut names = Names::init();
+    /// let mut names = Namespace::init();
     /// let base = Subscripts::from_str("ij,jk,kl->il").unwrap();
     ///
     /// // j -> k
@@ -214,7 +224,7 @@ impl Subscripts {
     /// let kj_contracted = k_contracted.contracted(&mut names, 'j').unwrap();
     /// assert_eq!(kj_contracted, Subscripts::from_str("il->il").unwrap());
     /// ```
-    pub fn contracted(&self, names: &mut Names, index: char) -> Result<Self> {
+    pub fn contracted(&self, names: &mut Namespace, index: char) -> Result<Self> {
         if !self.contraction_indices().contains(&index) {
             bail!("Unknown index: {}", index);
         }
