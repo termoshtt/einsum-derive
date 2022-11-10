@@ -91,7 +91,7 @@ pub enum Position {
     Intermidiate(usize),
 }
 
-/// Einsum subscripts, e.g. `ij,jk->ik`
+/// Einsum subscripts with tensor names, e.g. `ij,jk->ik | arg0 arg1 -> out`
 #[derive(Debug, PartialEq, Eq)]
 pub struct Subscripts {
     /// Input subscript, `ij` and `jk`
@@ -166,7 +166,7 @@ impl Subscripts {
         Subscripts { inputs, output }
     }
 
-    /// Indices to be contracted
+    /// Indices to be factorize
     ///
     /// ```
     /// use std::str::FromStr;
@@ -197,13 +197,24 @@ impl Subscripts {
         subscripts
     }
 
-    #[cfg_attr(doc, katexit::katexit)]
-    /// Evaluate contracted indices
+    /// Factorize subscripts
     ///
-    /// The memorized storage is placed on the first of input.
-    /// For example, the indices of memorized storage of $j$-contraction
-    /// for `ij,jk,kl->il` will be `ik`,
-    /// and this function yields subscript `ik,kl->il` instead of `kl,ik->il`.
+    /// This requires mutable reference to [Namespace] since factorization process
+    /// creates new identifier for intermediate storage, e.g.
+    ///
+    /// ```text
+    /// ij,jk,kl->il | arg0 arg1 arg2 -> out0
+    /// ```
+    ///
+    /// will be factorized into
+    ///
+    /// ```text
+    /// ij,jk->ik | arg0 arg1 -> out1
+    /// ik,kl->il | out1 arg2 -> out0
+    /// ```
+    ///
+    /// where `out1` is a new identifier.
+    ///
     ///
     /// ```
     /// use einsum_solver::subscripts::*;
@@ -213,18 +224,18 @@ impl Subscripts {
     /// let base = Subscripts::from_str("ij,jk,kl->il").unwrap();
     ///
     /// // j -> k
-    /// let j_contracted = base.contracted(&mut names, 'j').unwrap();
+    /// let j_contracted = base.factorize(&mut names, 'j').unwrap();
     /// assert_eq!(j_contracted, Subscripts::from_str("ik,kl->il").unwrap());
-    /// let jk_contracted = j_contracted.contracted(&mut names, 'k').unwrap();
+    /// let jk_contracted = j_contracted.factorize(&mut names, 'k').unwrap();
     /// assert_eq!(jk_contracted, Subscripts::from_str("il->il").unwrap());
     ///
     /// // k -> j
-    /// let k_contracted = base.contracted(&mut names, 'k').unwrap();
+    /// let k_contracted = base.factorize(&mut names, 'k').unwrap();
     /// assert_eq!(k_contracted, Subscripts::from_str("jl,ij->il").unwrap());
-    /// let kj_contracted = k_contracted.contracted(&mut names, 'j').unwrap();
+    /// let kj_contracted = k_contracted.factorize(&mut names, 'j').unwrap();
     /// assert_eq!(kj_contracted, Subscripts::from_str("il->il").unwrap());
     /// ```
-    pub fn contracted(&self, names: &mut Namespace, index: char) -> Result<Self> {
+    pub fn factorize(&self, names: &mut Namespace, index: char) -> Result<Self> {
         if !self.contraction_indices().contains(&index) {
             bail!("Unknown index: {}", index);
         }
