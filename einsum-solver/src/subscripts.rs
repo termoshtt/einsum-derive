@@ -216,54 +216,64 @@ impl Subscripts {
     ///
     ///
     /// ```
-    /// use einsum_solver::subscripts::*;
+    /// use einsum_solver::{subscripts::*, parser::RawSubscript};
     /// use std::str::FromStr;
     ///
     /// let mut names = Namespace::init();
     /// let base = Subscripts::from_raw_indices(&mut names, "ij,jk,kl->il").unwrap();
     ///
-    /// // j -> k
-    /// let j_contracted = base.factorize(&mut names, 'j').unwrap();
-    /// assert_eq!(j_contracted, Subscripts::from_raw_indices(&mut names, "ik,kl->il").unwrap());
-    /// let jk_contracted = j_contracted.factorize(&mut names, 'k').unwrap();
-    /// assert_eq!(jk_contracted, Subscripts::from_raw_indices(&mut names, "il->il").unwrap());
+    /// // Factorize along j
+    /// let (ijjk, ikkl) = base.factorize(&mut names, 'j').unwrap();
     ///
-    /// // k -> j
-    /// let k_contracted = base.factorize(&mut names, 'k').unwrap();
-    /// assert_eq!(k_contracted, Subscripts::from_raw_indices(&mut names, "jl,ij->il").unwrap());
-    /// let kj_contracted = k_contracted.factorize(&mut names, 'j').unwrap();
-    /// assert_eq!(kj_contracted, Subscripts::from_raw_indices(&mut names, "il->il").unwrap());
+    /// let arg0 = &ijjk.inputs[0];
+    /// assert_eq!(arg0.raw(), &RawSubscript::Indices(vec!['i', 'j']));
+    /// assert_eq!(arg0.position(), &Position::User(0));
+    ///
+    /// let arg1 = &ijjk.inputs[1];
+    /// assert_eq!(arg1.raw(), &RawSubscript::Indices(vec!['j', 'k']));
+    /// assert_eq!(arg1.position(), &Position::User(1));
+    ///
+    /// let out1 = &ijjk.output;
+    /// assert_eq!(out1.raw(), &RawSubscript::Indices(vec!['i', 'k']));
+    /// assert_eq!(out1.position(), &Position::Intermidiate(1));
     /// ```
-    pub fn factorize(&self, names: &mut Namespace, index: char) -> Result<Self> {
+    pub fn factorize(&self, names: &mut Namespace, index: char) -> Result<(Self, Self)> {
         if !self.contraction_indices().contains(&index) {
             bail!("Unknown index: {}", index);
         }
 
-        let mut intermediate = BTreeSet::new();
-        let mut others = Vec::new();
+        let mut first = Vec::new();
+        let mut second = Vec::new();
+        let mut out_indices = BTreeSet::new();
         for input in &self.inputs {
             let indices = input.indices();
             if indices.iter().any(|label| *label == index) {
+                first.push(input.clone());
                 for c in indices {
                     if c != index {
-                        intermediate.insert(c);
+                        out_indices.insert(c);
                     }
                 }
             } else {
-                others.push(input.clone());
+                second.push(input.clone());
             }
         }
-        let mut inputs = vec![Subscript {
-            raw: parser::RawSubscript::Indices(intermediate.into_iter().collect()),
+        let output = Subscript {
+            raw: parser::RawSubscript::Indices(out_indices.into_iter().collect()),
             position: names.new(),
-        }];
-        for other in others {
-            inputs.push(other)
-        }
-        Ok(Self {
-            inputs,
-            output: self.output.clone(),
-        })
+        };
+
+        second.insert(0, output.clone());
+        Ok((
+            Self {
+                inputs: first,
+                output,
+            },
+            Self {
+                inputs: second,
+                output: self.output.clone(),
+            },
+        ))
     }
 }
 
