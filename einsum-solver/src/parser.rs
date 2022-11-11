@@ -1,46 +1,85 @@
-//! Parse einsum subscripts, e.g. `ij,jk->ik`
+//! Parse einsum subscripts
 //!
 //! These parsers are implemented using [nom](https://github.com/Geal/nom),
 //! and corresponding EBNF-like schema are written in each document page.
 //!
 
-use crate::subscripts::*;
 use anyhow::{bail, Error, Result};
 use nom::{
-    branch::*, bytes::complete::*, character::complete::*, combinator::*, multi::*, sequence::*,
-    IResult, Parser,
+    bytes::complete::*, character::complete::*, combinator::*, multi::*, sequence::*, IResult,
+    Parser,
 };
+use std::fmt;
 
 /// index = `a` | `b` | `c` | `d` | `e` | `f` | `g` | `h` | `i` | `j` | `k` | `l` |`m` | `n` | `o` | `p` | `q` | `r` | `s` | `t` | `u` | `v` | `w` | `x` |`y` | `z`;
-pub fn index(input: &str) -> IResult<&str, Label> {
-    satisfy(|c| matches!(c, 'a'..='z'))
-        .map(Label::Index)
-        .parse(input)
+pub fn index(input: &str) -> IResult<&str, char> {
+    satisfy(|c| matches!(c, 'a'..='z')).parse(input)
 }
 
 /// ellipsis = `...`
-pub fn ellipsis(input: &str) -> IResult<&str, Label> {
-    tag("...").map(|_| Label::Ellipsis).parse(input)
+pub fn ellipsis(input: &str) -> IResult<&str, &str> {
+    tag("...").parse(input)
 }
 
-/// subscript = { [index] | [ellipsis] };
-pub fn subscript(input: &str) -> IResult<&str, Subscript> {
-    many0(alt((
-        index.map(Some),
-        ellipsis.map(Some),
-        multispace1.map(|_| None),
-    )))
-    .map(|labels| Subscript(labels.into_iter().flatten().collect()))
-    .parse(input)
+/// subscript = { [index] } [ [ellipsis] { [index] } ];
+pub fn subscript(input: &str) -> IResult<&str, RawSubscript> {
+    let mut indices = many0(tuple((multispace0, index)).map(|(_space, c)| c));
+    let (input, start) = indices(input)?;
+    let (input, end) = opt(tuple((multispace0, ellipsis, multispace0, indices))
+        .map(|(_space_pre, _ellipsis, _space_post, output)| output))(input)?;
+    if let Some(end) = end {
+        Ok((input, RawSubscript::Ellipsis { start, end }))
+    } else {
+        Ok((input, RawSubscript::Indices(start)))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum RawSubscript {
+    /// Indices without ellipsis, e.g. `ijk`
+    Indices(Vec<char>),
+    /// Indices with ellipsis, e.g. `i...j`
+    Ellipsis { start: Vec<char>, end: Vec<char> },
+}
+
+impl<const N: usize> PartialEq<[char; N]> for RawSubscript {
+    fn eq(&self, other: &[char; N]) -> bool {
+        match self {
+            RawSubscript::Indices(indices) => indices.eq(other),
+            _ => false,
+        }
+    }
+}
+
+impl fmt::Display for RawSubscript {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RawSubscript::Indices(indices) => {
+                for i in indices {
+                    write!(f, "{}", i)?;
+                }
+            }
+            RawSubscript::Ellipsis { start, end } => {
+                for i in start {
+                    write!(f, "{}", i)?;
+                }
+                write!(f, "___")?;
+                for i in end {
+                    write!(f, "{}", i)?;
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Einsum subscripts, e.g. `ij,jk->ik`
 #[derive(Debug, PartialEq, Eq)]
 pub struct RawSubscripts {
     /// Input subscript, `ij` and `jk`
-    pub inputs: Vec<Subscript>,
+    pub inputs: Vec<RawSubscript>,
     /// Output subscript. This may be empty for "implicit mode".
-    pub output: Option<Subscript>,
+    pub output: Option<RawSubscript>,
 }
 
 impl std::str::FromStr for RawSubscripts {
@@ -58,7 +97,7 @@ impl std::str::FromStr for RawSubscripts {
 /// subscripts = [subscript] {`,` [subscript]} \[ `->` [subscript] \]
 pub fn subscripts(input: &str) -> IResult<&str, RawSubscripts> {
     let (input, _head) = multispace0(input)?;
-    let (input, inputs) = separated_list1(char(','), subscript)(input)?;
+    let (input, inputs) = separated_list1(tuple((multispace0, char(','))), subscript)(input)?;
     let (input, output) = opt(tuple((multispace0, tag("->"), multispace0, subscript))
         .map(|(_space_pre, _arrow, _space_post, output)| output))(input)?;
     Ok((input, RawSubscripts { inputs, output }))
@@ -71,36 +110,49 @@ mod tests {
     use nom::Finish;
 
     #[test]
-    fn test_indices() {
-        let ans = (
-            "",
-            Subscript(vec![
-                Label::Index('i'),
-                Label::Index('j'),
-                Label::Index('k'),
-            ]),
-        );
-        assert_eq!(subscript("ijk").finish().unwrap(), ans);
-        assert_eq!(subscript("i jk").finish().unwrap(), ans);
-        assert_eq!(subscript("ij k").finish().unwrap(), ans);
-        assert_eq!(subscript("i j k").finish().unwrap(), ans);
-    }
-
-    #[test]
-    fn test_ellipsis() {
-        let (res, out) = subscript("i...j").finish().unwrap();
-        assert_eq!(
-            out,
-            Subscript(vec![Label::Index('i'), Label::Ellipsis, Label::Index('j'),])
-        );
+    fn test_subscript() {
+        let (res, out) = subscript("ijk").finish().unwrap();
+        assert_eq!(out, RawSubscript::Indices(vec!['i', 'j', 'k']));
         assert_eq!(res, "");
 
         let (res, out) = subscript("...").finish().unwrap();
-        assert_eq!(out, Subscript(vec![Label::Ellipsis,]));
+        assert_eq!(
+            out,
+            RawSubscript::Ellipsis {
+                start: Vec::new(),
+                end: Vec::new()
+            }
+        );
+        assert_eq!(res, "");
+
+        let (res, out) = subscript("i...").finish().unwrap();
+        assert_eq!(
+            out,
+            RawSubscript::Ellipsis {
+                start: vec!['i'],
+                end: Vec::new()
+            }
+        );
         assert_eq!(res, "");
 
         let (res, out) = subscript("...j").finish().unwrap();
-        assert_eq!(out, Subscript(vec![Label::Ellipsis, Label::Index('j'),]));
+        assert_eq!(
+            out,
+            RawSubscript::Ellipsis {
+                start: Vec::new(),
+                end: vec!['j'],
+            }
+        );
+        assert_eq!(res, "");
+
+        let (res, out) = subscript("i...j").finish().unwrap();
+        assert_eq!(
+            out,
+            RawSubscript::Ellipsis {
+                start: vec!['i'],
+                end: vec!['j'],
+            }
+        );
         assert_eq!(res, "");
     }
 
@@ -113,10 +165,10 @@ mod tests {
                 op,
                 RawSubscripts {
                     inputs: vec![
-                        Subscript(vec![Label::Index('i'), Label::Index('j')]),
-                        Subscript(vec![Label::Index('j'), Label::Index('k')])
+                        RawSubscript::Indices(vec!['i', 'j']),
+                        RawSubscript::Indices(vec!['j', 'k'])
                     ],
-                    output: Some(Subscript(vec![Label::Index('i'), Label::Index('k')])),
+                    output: Some(RawSubscript::Indices(vec!['i', 'k'])),
                 }
             );
         }
@@ -138,8 +190,8 @@ mod tests {
             op,
             RawSubscripts {
                 inputs: vec![
-                    Subscript(vec![Label::Index('i'), Label::Index('j')]),
-                    Subscript(vec![Label::Index('j'), Label::Index('k')])
+                    RawSubscript::Indices(vec!['i', 'j']),
+                    RawSubscript::Indices(vec!['j', 'k'])
                 ],
                 output: None,
             }
@@ -151,10 +203,19 @@ mod tests {
             op,
             RawSubscripts {
                 inputs: vec![
-                    Subscript(vec![Label::Index('i'), Label::Ellipsis]),
-                    Subscript(vec![Label::Index('i'), Label::Ellipsis])
+                    RawSubscript::Ellipsis {
+                        start: vec!['i'],
+                        end: Vec::new()
+                    },
+                    RawSubscript::Ellipsis {
+                        start: vec!['i'],
+                        end: Vec::new()
+                    }
                 ],
-                output: Some(Subscript(vec![Label::Ellipsis]))
+                output: Some(RawSubscript::Ellipsis {
+                    start: Vec::new(),
+                    end: Vec::new()
+                })
             }
         );
     }
