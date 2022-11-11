@@ -1,6 +1,6 @@
 //! Einsum subscripts, e.g. `ij,jk->ik`
 use crate::parser;
-use anyhow::{bail, Error, Result};
+use anyhow::{bail, Result};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt,
