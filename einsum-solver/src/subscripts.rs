@@ -1,7 +1,5 @@
-use crate::{
-    error::{Error, Result},
-    parser,
-};
+use crate::parser;
+use anyhow::{bail, Error, Result};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt,
@@ -46,7 +44,7 @@ impl FromStr for Subscript {
         if let Ok((_, ss)) = parser::subscript(input) {
             Ok(ss)
         } else {
-            Err(Self::Err::InvalidSubScripts(input.to_string()))
+            bail!("Invalid subscript: {}", input);
         }
     }
 }
@@ -203,7 +201,7 @@ impl Subscripts {
     /// ```
     pub fn contracted(&self, index: char) -> Result<Self> {
         if !self.contraction_indices().contains(&index) {
-            return Err(Error::UnknownIndex(index));
+            bail!("Unknown index: {}", index);
         }
 
         let mut intermediate = BTreeSet::new();
