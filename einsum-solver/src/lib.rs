@@ -154,7 +154,6 @@
 //! and the objective of this crate is to (heuristically) solve this problem.
 //!
 
-pub mod error;
 pub mod parser;
 pub mod path;
 pub mod subscripts;

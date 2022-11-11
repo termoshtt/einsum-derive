@@ -5,6 +5,7 @@
 //!
 
 use crate::subscripts::*;
+use anyhow::{bail, Error, Result};
 use nom::{
     branch::*, bytes::complete::*, character::complete::*, combinator::*, multi::*, sequence::*,
     IResult, Parser,
@@ -43,13 +44,13 @@ pub struct RawSubscripts {
 }
 
 impl std::str::FromStr for RawSubscripts {
-    type Err = crate::error::Error;
-    fn from_str(input: &str) -> crate::error::Result<Self> {
+    type Err = Error;
+    fn from_str(input: &str) -> Result<Self> {
         use nom::Finish;
         if let Ok((_, ss)) = subscripts(input).finish() {
             Ok(ss)
         } else {
-            Err(Self::Err::InvalidSubScripts(input.to_string()))
+            bail!("Invalid subscripts: {}", input);
         }
     }
 }
