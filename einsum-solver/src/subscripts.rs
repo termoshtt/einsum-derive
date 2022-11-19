@@ -214,6 +214,25 @@ impl Subscripts {
     ///
     /// where `out1` is a new identifier.
     ///
+    /// Output
+    /// -------
+    /// - `Ok(Some(first, second))`: factorization along `index` succeeded
+    /// - `Ok(None)`: this subscripts is not `index`-factorizable
+    /// - `Err(anyhow::Error)`: `index` is not a contraction index of this subscripts
+    ///
+    /// When factorization of `origin` along `index` yields two subscripts
+    /// `(first, second)` successfully,
+    ///
+    /// - All subscript in `first` contains `index`
+    ///   - `first.contraction_indices()` is a single value set `{ index }`
+    ///     because indices except `index` appear as output.
+    ///   - `first` is irreducible
+    /// - All subscript in `second` does not contains `index`
+    ///   - `second.contraction_indices()` is exactly smaller than
+    ///     `origin.contraction_indices()`
+    ///
+    /// Example
+    /// --------
     ///
     /// ```
     /// use einsum_solver::{subscripts::*, parser::RawSubscript};
