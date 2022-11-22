@@ -163,3 +163,60 @@ pub fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::format::format_block;
+    use einsum_solver::subscripts::{Namespace, Subscripts};
+
+    #[test]
+    fn contraction_snapshots() {
+        let mut namespace = Namespace::init();
+        let subscripts = Subscripts::from_raw_indices(&mut namespace, "ij,jk->ik").unwrap();
+        let tt = format_block(contraction(&subscripts).to_string());
+        insta::assert_snapshot!(tt, @r###"
+        for i in 0..n_i {
+            for k in 0..n_k {
+                for j in 0..n_j {
+                    out[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
+                }
+            }
+        }
+        "###);
+    }
+
+    #[test]
+    fn einsum_fn_snapshots() {
+        let mut namespace = Namespace::init();
+        let subscripts = Subscripts::from_raw_indices(&mut namespace, "ij,jk->ik").unwrap();
+        let tt = format_block(def_einsum_fn(&subscripts).to_string());
+        insta::assert_snapshot!(tt, @r###"
+        fn ij_jk__ik<T, S0, S1>(
+            arg0: ndarray::ArrayBase<S0, ndarray::Ix2>,
+            arg1: ndarray::ArrayBase<S1, ndarray::Ix2>,
+        ) -> ndarray::Array<T, ndarray::Ix2>
+        where
+            T: ndarray::LinalgScalar,
+            S0: ndarray::Data<Elem = T>,
+            S1: ndarray::Data<Elem = T>,
+        {
+            let (n_0_0, n_0_1) = arg0.dim();
+            let n_i = n_0_0;
+            let n_j = n_0_1;
+            let (n_1_0, n_1_1) = arg1.dim();
+            assert_eq!(n_j, n_1_0);
+            let n_k = n_1_1;
+            let mut out = ndarray::Array::zeros((n_i, n_k));
+            for i in 0..n_i {
+                for k in 0..n_k {
+                    for j in 0..n_j {
+                        out[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
+                    }
+                }
+            }
+            out
+        }
+        "###);
+    }
+}
