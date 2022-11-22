@@ -1,6 +1,6 @@
 //! proc-macro based einsum implementation
 
-use einsum_solver::subscripts::{Namespace, Subscripts};
+use einsum_solver::{namespace::*, subscripts::Subscripts};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_error::{abort_call_site, proc_macro_error, OptionExt};

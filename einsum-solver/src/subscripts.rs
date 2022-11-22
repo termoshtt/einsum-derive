@@ -1,5 +1,5 @@
 //! Einsum subscripts, e.g. `ij,jk->ik`
-use crate::parser;
+use crate::{namespace::*, parser::*};
 use anyhow::Result;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -9,12 +9,12 @@ use std::{
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Subscript {
-    raw: parser::RawSubscript,
+    raw: RawSubscript,
     position: Position,
 }
 
 impl Subscript {
-    pub fn raw(&self) -> &parser::RawSubscript {
+    pub fn raw(&self) -> &RawSubscript {
         &self.raw
     }
 
@@ -24,48 +24,12 @@ impl Subscript {
 
     pub fn indices(&self) -> Vec<char> {
         match &self.raw {
-            parser::RawSubscript::Indices(indices) => indices.clone(),
-            parser::RawSubscript::Ellipsis { start, end } => {
+            RawSubscript::Indices(indices) => indices.clone(),
+            RawSubscript::Ellipsis { start, end } => {
                 start.iter().chain(end.iter()).cloned().collect()
             }
         }
     }
-}
-
-/// Names of tensors
-///
-/// As the crate level document explains,
-/// einsum factorization requires to track names of tensors
-/// in addition to subscripts, and this struct manages it.
-/// This works as a simple counter, which counts how many intermediate
-/// tensor denoted `out{N}` appears and issues new `out{N+1}` identifier.
-///
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Namespace {
-    last: usize,
-}
-
-impl Namespace {
-    /// Create new namespace
-    pub fn init() -> Self {
-        Namespace { last: 0 }
-    }
-
-    /// Issue new identifier
-    pub fn new(&mut self) -> Position {
-        let pos = Position::Intermidiate(self.last);
-        self.last += 1;
-        pos
-    }
-}
-
-/// Which tensor the subscript specifies
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
-pub enum Position {
-    /// The tensor which user inputs as N-th argument of einsum
-    User(usize),
-    /// The tensor created by einsum in its N-th step
-    Intermidiate(usize),
 }
 
 /// Einsum subscripts with tensor names, e.g. `ij,jk->ik | arg0 arg1 -> out`
@@ -109,7 +73,7 @@ impl Subscripts {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use einsum_solver::{subscripts::{Subscripts, Namespace}, parser::RawSubscripts};
+    /// use einsum_solver::{subscripts::*, parser::*, namespace::*};
     ///
     /// let mut names = Namespace::init();
     ///
@@ -124,7 +88,7 @@ impl Subscripts {
     /// assert_eq!(subscripts.output.raw(), &['i', 'j']);
     /// ```
     ///
-    pub fn from_raw(names: &mut Namespace, raw: parser::RawSubscripts) -> Self {
+    pub fn from_raw(names: &mut Namespace, raw: RawSubscripts) -> Self {
         let inputs = raw
             .inputs
             .iter()
@@ -147,7 +111,7 @@ impl Subscripts {
 
         let count = count_indices(&inputs);
         let output = Subscript {
-            raw: parser::RawSubscript::Indices(
+            raw: RawSubscript::Indices(
                 count
                     .iter()
                     .filter_map(|(key, value)| if *value == 1 { Some(*key) } else { None })
@@ -159,7 +123,7 @@ impl Subscripts {
     }
 
     pub fn from_raw_indices(names: &mut Namespace, indices: &str) -> Result<Self> {
-        let raw = parser::RawSubscripts::from_str(indices)?;
+        let raw = RawSubscripts::from_str(indices)?;
         Ok(Self::from_raw(names, raw))
     }
 
@@ -168,7 +132,7 @@ impl Subscripts {
     /// ```
     /// use std::str::FromStr;
     /// use maplit::btreeset;
-    /// use einsum_solver::subscripts::{Subscripts, Namespace};
+    /// use einsum_solver::{subscripts::Subscripts, namespace::*};
     ///
     /// let mut names = Namespace::init();
     ///
@@ -215,7 +179,7 @@ impl Subscripts {
     /// where `out1` is a new identifier.
     ///
     /// ```
-    /// use einsum_solver::{subscripts::*, parser::RawSubscript};
+    /// use einsum_solver::{subscripts::*, namespace::*, parser::RawSubscript};
     /// use std::str::FromStr;
     /// use maplit::btreeset;
     ///
@@ -266,7 +230,7 @@ impl Subscripts {
             }
         }
         let out = Subscript {
-            raw: parser::RawSubscript::Indices(
+            raw: RawSubscript::Indices(
                 indices
                     .into_iter()
                     .filter_map(|(key, (i, o))| {
