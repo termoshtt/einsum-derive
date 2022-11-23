@@ -41,7 +41,7 @@ pub fn brute_force(names: &mut Namespace, subscripts: Subscripts) -> Result<Path
             let mut pos = BTreeSet::new();
             for i in 0..n {
                 if m % 2 == 1 {
-                    pos.insert(Position::User(i));
+                    pos.insert(Position::Arg(i));
                 }
                 m = m / 2;
             }

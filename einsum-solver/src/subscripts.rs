@@ -91,7 +91,7 @@ impl Subscripts {
             .enumerate()
             .map(|(i, indices)| Subscript {
                 raw: indices.clone(),
-                position: Position::User(i),
+                position: Position::Arg(i),
             })
             .collect();
         let position = names.new_ident();

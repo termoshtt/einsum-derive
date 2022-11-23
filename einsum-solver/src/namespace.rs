@@ -19,7 +19,7 @@ impl Namespace {
 
     /// Issue new identifier
     pub fn new_ident(&mut self) -> Position {
-        let pos = Position::Intermidiate(self.last);
+        let pos = Position::Out(self.last);
         self.last += 1;
         pos
     }
@@ -29,7 +29,7 @@ impl Namespace {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub enum Position {
     /// The tensor which user inputs as N-th argument of einsum
-    User(usize),
+    Arg(usize),
     /// The tensor created by einsum in its N-th step
-    Intermidiate(usize),
+    Out(usize),
 }
