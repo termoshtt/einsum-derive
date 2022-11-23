@@ -1,3 +1,5 @@
+use std::fmt;
+
 /// Names of tensors
 ///
 /// As the crate level document explains,
@@ -32,4 +34,13 @@ pub enum Position {
     Arg(usize),
     /// The tensor created by einsum in its N-th step
     Out(usize),
+}
+
+impl fmt::Display for Position {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Position::Arg(n) => write!(f, "arg{}", n),
+            Position::Out(n) => write!(f, "out{}", n),
+        }
+    }
 }

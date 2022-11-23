@@ -3,6 +3,7 @@ use crate::{namespace::*, parser::*};
 use anyhow::Result;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    fmt,
     str::FromStr,
 };
 
@@ -33,12 +34,34 @@ impl Subscript {
 
 #[cfg_attr(doc, katexit::katexit)]
 /// Einsum subscripts with tensor names, e.g. `ij,jk->ik | arg0 arg1 -> out`
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Subscripts {
     /// Input subscript, `ij` and `jk`
     pub inputs: Vec<Subscript>,
     /// Output subscript.
     pub output: Subscript,
+}
+
+// `ij,jk->ik | arg0,arg1->out0` format
+impl fmt::Debug for Subscripts {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (n, input) in self.inputs.iter().enumerate() {
+            write!(f, "{}", input.raw)?;
+            if n < self.inputs.len() - 1 {
+                write!(f, ",")?;
+            }
+        }
+        write!(f, "->{} | ", self.output.raw)?;
+
+        for (n, input) in self.inputs.iter().enumerate() {
+            write!(f, "{}", input.position)?;
+            if n < self.inputs.len() - 1 {
+                write!(f, ",")?;
+            }
+        }
+        write!(f, "->{}", self.output.position)?;
+        Ok(())
+    }
 }
 
 impl Subscripts {
