@@ -207,7 +207,7 @@ impl Subscripts {
     /// let base = Subscripts::from_raw_indices(&mut names, "ij,jk,kl->il").unwrap();
     ///
     /// let (ijjk, ikkl) = base.factorize(&mut names,
-    ///   btreeset!{ Position::User(0), Position::User(1) }
+    ///   btreeset!{ Position::Arg(0), Position::Arg(1) }
     /// ).unwrap();
     /// ```
     pub fn factorize(
