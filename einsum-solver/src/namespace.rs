@@ -18,7 +18,7 @@ impl Namespace {
     }
 
     /// Issue new identifier
-    pub fn new(&mut self) -> Position {
+    pub fn new_ident(&mut self) -> Position {
         let pos = Position::Intermidiate(self.last);
         self.last += 1;
         pos

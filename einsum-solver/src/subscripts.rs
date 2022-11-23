@@ -98,7 +98,7 @@ impl Subscripts {
                 position: Position::User(i),
             })
             .collect();
-        let position = names.new();
+        let position = names.new_ident();
         if let Some(output) = raw.output {
             return Subscripts {
                 inputs,
@@ -242,7 +242,7 @@ impl Subscripts {
                     })
                     .collect(),
             ),
-            position: names.new(),
+            position: names.new_ident(),
         };
         outer_inputs.insert(0, out.clone());
         Ok((
