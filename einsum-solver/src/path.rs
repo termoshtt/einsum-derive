@@ -19,7 +19,7 @@ impl Path {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use einsum_solver::{path::Path, subscripts::{Subscripts, Namespace}};
+    /// use einsum_solver::{path::Path, namespace::Namespace, subscripts::Subscripts};
     ///
     /// let mut names = Namespace::init();
     /// let subscripts = Subscripts::from_raw_indices(&mut names, "ij,ji->").unwrap();

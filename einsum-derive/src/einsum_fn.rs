@@ -168,7 +168,7 @@ pub fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
 mod test {
     use super::*;
     use crate::format::format_block;
-    use einsum_solver::subscripts::{Namespace, Subscripts};
+    use einsum_solver::{namespace::Namespace, subscripts::Subscripts};
 
     #[test]
     fn contraction_snapshots() {
