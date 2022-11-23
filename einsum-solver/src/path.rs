@@ -75,7 +75,17 @@ mod test {
     use super::*;
 
     #[test]
-    fn path() -> Result<()> {
+    fn brute_force_ij_jk() -> Result<()> {
+        let mut names = Namespace::init();
+        let subscripts = Subscripts::from_raw_indices(&mut names, "ij,jk->ik")?;
+        let path = brute_force(&mut names, subscripts)?;
+        assert_eq!(path.len(), 1);
+        assert_eq!(path[0].to_string(), "ij,jk->ik | arg0,arg1->out0");
+        Ok(())
+    }
+
+    #[test]
+    fn brute_force_ij_jk_kl_l() -> Result<()> {
         let mut names = Namespace::init();
         let subscripts = Subscripts::from_raw_indices(&mut names, "ij,jk,kl,l->i")?;
         let path = brute_force(&mut names, subscripts)?;
@@ -84,5 +94,17 @@ mod test {
         assert_eq!(path[1].to_string(), "k,jk->j | out1,arg1->out2");
         assert_eq!(path[2].to_string(), "j,ij->i | out2,arg0->out0");
         Ok(())
+    }
+
+    // i - 1 - k - 2 - m - 4 - n
+    //     |       |
+    //     j - 3 - l
+    #[test]
+    fn brute_force_ijk_jl_klm_mn() -> Result<()> {
+        let mut names = Namespace::init();
+        let subscripts = Subscripts::from_raw_indices(&mut names, "ijk,jl,klm,mn")?;
+        let path = brute_force(&mut names, subscripts)?;
+        dbg!(path);
+        todo!()
     }
 }
