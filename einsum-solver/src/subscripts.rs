@@ -127,7 +127,7 @@ impl Subscripts {
         Ok(Self::from_raw(names, raw))
     }
 
-    /// Indices to be factorize
+    /// Indices to be contracted
     ///
     /// ```
     /// use std::str::FromStr;
@@ -162,9 +162,6 @@ impl Subscripts {
 
     /// Factorize subscripts
     ///
-    /// This requires mutable reference to [Namespace] since factorization process
-    /// creates new identifier for intermediate storage, e.g.
-    ///
     /// ```text
     /// ij,jk,kl->il | arg0 arg1 arg2 -> out0
     /// ```
@@ -175,8 +172,6 @@ impl Subscripts {
     /// ij,jk->ik | arg0 arg1 -> out1
     /// ik,kl->il | out1 arg2 -> out0
     /// ```
-    ///
-    /// where `out1` is a new identifier.
     ///
     /// ```
     /// use einsum_solver::{subscripts::*, namespace::*, parser::RawSubscript};
@@ -189,18 +184,6 @@ impl Subscripts {
     /// let (ijjk, ikkl) = base.factorize(&mut names,
     ///   btreeset!{ Position::User(0), Position::User(1) }
     /// ).unwrap();
-    ///
-    /// let arg0 = &ijjk.inputs[0];
-    /// assert_eq!(arg0.raw(), &RawSubscript::Indices(vec!['i', 'j']));
-    /// assert_eq!(arg0.position(), &Position::User(0));
-    ///
-    /// let arg1 = &ijjk.inputs[1];
-    /// assert_eq!(arg1.raw(), &RawSubscript::Indices(vec!['j', 'k']));
-    /// assert_eq!(arg1.position(), &Position::User(1));
-    ///
-    /// let out1 = &ijjk.output;
-    /// assert_eq!(out1.raw(), &RawSubscript::Indices(vec!['i', 'k']));
-    /// assert_eq!(out1.position(), &Position::Intermidiate(1));
     /// ```
     pub fn factorize(
         &self,
