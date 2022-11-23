@@ -32,6 +32,7 @@ impl Subscript {
     }
 }
 
+#[cfg_attr(doc, katexit::katexit)]
 /// Einsum subscripts with tensor names, e.g. `ij,jk->ik | arg0 arg1 -> out`
 #[derive(Debug, PartialEq, Eq)]
 pub struct Subscripts {
@@ -56,6 +57,16 @@ impl fmt::Display for Subscripts {
 }
 
 impl Subscripts {
+    /// Returns $\alpha$ if this subscripts requires $O(N^\alpha)$ floating point operation
+    pub fn compute_order(&self) -> usize {
+        self.memory_order() + self.contraction_indices().len()
+    }
+
+    /// Returns $\beta$ if this subscripts requires $O(N^\beta)$ memory
+    pub fn memory_order(&self) -> usize {
+        self.output.indices().len()
+    }
+
     /// Normalize subscripts into "explicit mode"
     ///
     /// [numpy.einsum](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html)

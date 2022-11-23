@@ -67,8 +67,10 @@
 //! For simplicity, both addition `+` and multiplication `*` are counted as 1 operation,
 //! and do not consider fused multiplication-addition (FMA).
 //! In the above `matmul3` example, there are $\\#K \times \\#J$ addition
-//! and $2 \times \\#K \times \\#J$ multiplications,
+//! and $2 \times \\#K \times \\#J$ multiplications for every indices $(i, l)$,
 //! where $\\#$ denotes the number of elements in the index sets.
+//! Assuming the all sizes of indices are same and denoted by $N$,
+//! there are $O(N^4)$ floating point operations.
 //!
 //! When we sum up partially along `j`:
 //! $$
@@ -79,8 +81,8 @@
 //! \sum_{k \in K} c_{kl} d_{ik},
 //! \text{where} \space d_{ik} = \sum_{j \in J} a_{ij} b_{jk},
 //! $$
-//! there are only $2\\#K + 2\\#J$ operations with $\\#I \times \\#K$
-//! memorization storage.
+//! there are $O(N^3)$ operations for both computing $d_{ik}$ and final summation
+//! with $O(N^2)$ memorization storage.
 //!
 //! When is this factorization possible? We know that above `matmul3` example
 //! is also written as associative matrix product $ABC = A(BC) = (AB)C$,
