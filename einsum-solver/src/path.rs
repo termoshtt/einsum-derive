@@ -1,33 +1,80 @@
 //! Construct and execute contraction path
 
-use crate::subscripts::*;
+use crate::{
+    namespace::{Namespace, Position},
+    subscripts::*,
+};
+use anyhow::Result;
+use std::collections::BTreeSet;
 
-/// Contraction path
-#[derive(Debug, PartialEq, Eq)]
-pub struct Path {
-    pub subscripts: Subscripts,
-    pub path: Vec<char>,
-}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Path(Vec<Subscripts>);
 
 impl Path {
-    /// Manually set contraction order
-    pub fn manual(subscripts: Subscripts, path: Vec<char>) -> Self {
-        Path { subscripts, path }
+    pub fn compute_order(&self) -> usize {
+        self.0
+            .iter()
+            .map(|ss| ss.compute_order())
+            .max()
+            .expect("self.0 never be empty")
     }
 
-    /// Alphabetical order
-    ///
-    /// ```
-    /// use std::str::FromStr;
-    /// use einsum_solver::{path::Path, namespace::Namespace, subscripts::Subscripts};
-    ///
-    /// let mut names = Namespace::init();
-    /// let subscripts = Subscripts::from_raw_indices(&mut names, "ij,ji->").unwrap();
-    /// let path = Path::alphabetical(subscripts);
-    /// assert_eq!(path.path, &['i', 'j']);
-    /// ```
-    pub fn alphabetical(subscripts: Subscripts) -> Self {
-        let path = subscripts.contraction_indices().into_iter().collect();
-        Path { subscripts, path }
+    pub fn memory_order(&self) -> usize {
+        self.0
+            .iter()
+            .map(|ss| ss.memory_order())
+            .max()
+            .expect("self.0 never be empty")
+    }
+}
+
+pub fn brute_force(names: &mut Namespace, subscripts: Subscripts) -> Result<Path> {
+    if subscripts.inputs.len() <= 2 {
+        // Cannot be factorized anymore
+        return Ok(Path(vec![subscripts]));
+    }
+
+    let n = subscripts.inputs.len();
+    let subpaths = (0..2_usize.pow(n as u32))
+        .filter_map(|mut m| {
+            // create combinations specifying which tensors are used
+            let mut pos = BTreeSet::new();
+            for i in 0..n {
+                if m % 2 == 1 {
+                    pos.insert(Position::User(i));
+                }
+                m = m / 2;
+            }
+            // At least two tensors, and not be all
+            if pos.len() > 2 && pos.len() < n {
+                Some(pos)
+            } else {
+                None
+            }
+        })
+        .map(|pos| {
+            let (inner, outer) = subscripts.factorize(names, pos)?;
+            let mut sub = brute_force(names, outer)?;
+            sub.0.insert(0, inner);
+            Ok(sub)
+        })
+        .collect::<Result<Vec<Path>>>()?;
+    Ok(subpaths
+        .into_iter()
+        .min_by_key(|path| path.compute_order())
+        .expect("subpath never be empty"))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn path() -> Result<()> {
+        let mut names = Namespace::init();
+        let subscripts = Subscripts::from_raw_indices(&mut names, "ij,jk,kl,l->i")?;
+        let path = brute_force(&mut names, subscripts)?;
+        dbg!(path);
+        panic!()
     }
 }

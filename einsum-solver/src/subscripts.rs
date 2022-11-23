@@ -33,7 +33,7 @@ impl Subscript {
 
 #[cfg_attr(doc, katexit::katexit)]
 /// Einsum subscripts with tensor names, e.g. `ij,jk->ik | arg0 arg1 -> out`
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Subscripts {
     /// Input subscript, `ij` and `jk`
     pub inputs: Vec<Subscript>,
