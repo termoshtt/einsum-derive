@@ -73,7 +73,7 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
     }
 
     let einsum_fn = einsum_fn::def_einsum_fn(&subscripts);
-    let fn_name = syn::Ident::new(&format!("{}", subscripts), Span::call_site());
+    let fn_name = syn::Ident::new(&subscripts.escaped_ident(), Span::call_site());
     quote! {
         {
             #einsum_fn
