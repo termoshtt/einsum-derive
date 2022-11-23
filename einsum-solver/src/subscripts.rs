@@ -3,7 +3,6 @@ use crate::{namespace::*, parser::*};
 use anyhow::Result;
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fmt,
     str::FromStr,
 };
 
@@ -40,20 +39,6 @@ pub struct Subscripts {
     pub inputs: Vec<Subscript>,
     /// Output subscript.
     pub output: Subscript,
-}
-
-// `Display` implementation is designed to use function name.
-// This is not injective, e.g. `i...,j->ij` and `i,...j->ij`
-// returns a same result `i____j__ij`.
-impl fmt::Display for Subscripts {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for input in &self.inputs {
-            write!(f, "{}", input.raw)?;
-            write!(f, "_")?;
-        }
-        write!(f, "_{}", self.output.raw)?;
-        Ok(())
-    }
 }
 
 impl Subscripts {
@@ -250,6 +235,22 @@ impl Subscripts {
             },
         ))
     }
+
+    /// Escaped subscript for identifier
+    ///
+    /// This is not injective, e.g. `i...,j->ij` and `i,...j->ij`
+    /// returns a same result `i____j__ij`.
+    ///
+    pub fn escaped_ident(&self) -> String {
+        use std::fmt::Write;
+        let mut out = String::new();
+        for input in &self.inputs {
+            write!(out, "{}", input.raw).unwrap();
+            write!(out, "_").unwrap();
+        }
+        write!(out, "_{}", self.output.raw).unwrap();
+        out
+    }
 }
 
 fn count_indices(inputs: &[Subscript]) -> BTreeMap<char, u32> {
@@ -267,22 +268,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn display() {
+    fn escaped_ident() {
         let mut names = Namespace::init();
 
         let subscripts = Subscripts::from_raw_indices(&mut names, "ij,jk->ik").unwrap();
-        assert_eq!(format!("{}", subscripts), "ij_jk__ik");
+        assert_eq!(subscripts.escaped_ident(), "ij_jk__ik");
 
         // implicit mode
         let subscripts = Subscripts::from_raw_indices(&mut names, "ij,jk").unwrap();
-        assert_eq!(format!("{}", subscripts), "ij_jk__ik");
+        assert_eq!(subscripts.escaped_ident(), "ij_jk__ik");
 
         // output scalar
         let subscripts = Subscripts::from_raw_indices(&mut names, "i,i").unwrap();
-        assert_eq!(format!("{}", subscripts), "i_i__");
+        assert_eq!(subscripts.escaped_ident(), "i_i__");
 
         // ellipsis
         let subscripts = Subscripts::from_raw_indices(&mut names, "ij...,jk...->ik...").unwrap();
-        assert_eq!(format!("{}", subscripts), "ij____jk_____ik___");
+        assert_eq!(subscripts.escaped_ident(), "ij____jk_____ik___");
     }
 }

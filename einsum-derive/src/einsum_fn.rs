@@ -130,7 +130,7 @@ fn def_output_array(subscripts: &Subscripts) -> TokenStream2 {
 }
 
 pub fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
-    let fn_name = syn::Ident::new(&format!("{}", subscripts), Span::call_site());
+    let fn_name = syn::Ident::new(&subscripts.escaped_ident(), Span::call_site());
     let n = subscripts.inputs.len();
 
     let args: Vec<syn::Ident> = (0..n).map(arg_ident).collect();
