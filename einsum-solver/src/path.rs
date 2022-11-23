@@ -1,9 +1,6 @@
 //! Construct and execute contraction path
 
-use crate::{
-    namespace::{Namespace, Position},
-    subscripts::*,
-};
+use crate::{namespace::Namespace, subscripts::*};
 use anyhow::Result;
 use std::collections::BTreeSet;
 
@@ -41,20 +38,21 @@ pub fn brute_force(names: &mut Namespace, subscripts: Subscripts) -> Result<Path
             let mut pos = BTreeSet::new();
             for i in 0..n {
                 if m % 2 == 1 {
-                    pos.insert(Position::Arg(i));
+                    pos.insert(subscripts.inputs[i].position().clone());
                 }
                 m = m / 2;
             }
             // At least two tensors, and not be all
-            if pos.len() > 2 && pos.len() < n {
+            if pos.len() >= 2 && pos.len() < n {
                 Some(pos)
             } else {
                 None
             }
         })
         .map(|pos| {
-            let (inner, outer) = subscripts.factorize(names, pos)?;
-            let mut sub = brute_force(names, outer)?;
+            let mut names = names.clone();
+            let (inner, outer) = subscripts.factorize(&mut names, pos)?;
+            let mut sub = brute_force(&mut names, outer)?;
             sub.0.insert(0, inner);
             Ok(sub)
         })
@@ -75,6 +73,6 @@ mod test {
         let subscripts = Subscripts::from_raw_indices(&mut names, "ij,jk,kl,l->i")?;
         let path = brute_force(&mut names, subscripts)?;
         dbg!(path);
-        panic!()
+        todo!()
     }
 }

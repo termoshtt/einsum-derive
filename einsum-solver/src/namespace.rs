@@ -28,7 +28,7 @@ impl Namespace {
 }
 
 /// Which tensor the subscript specifies
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub enum Position {
     /// The tensor which user inputs as N-th argument of einsum
     Arg(usize),
@@ -36,11 +36,17 @@ pub enum Position {
     Out(usize),
 }
 
-impl fmt::Display for Position {
+impl fmt::Debug for Position {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Position::Arg(n) => write!(f, "arg{}", n),
             Position::Out(n) => write!(f, "out{}", n),
         }
+    }
+}
+
+impl fmt::Display for Position {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
     }
 }
