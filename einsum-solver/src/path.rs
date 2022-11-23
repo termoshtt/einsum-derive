@@ -7,6 +7,13 @@ use std::collections::BTreeSet;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Path(Vec<Subscripts>);
 
+impl std::ops::Deref for Path {
+    type Target = [Subscripts];
+    fn deref(&self) -> &[Subscripts] {
+        &self.0
+    }
+}
+
 impl Path {
     pub fn compute_order(&self) -> usize {
         self.0
@@ -72,7 +79,10 @@ mod test {
         let mut names = Namespace::init();
         let subscripts = Subscripts::from_raw_indices(&mut names, "ij,jk,kl,l->i")?;
         let path = brute_force(&mut names, subscripts)?;
-        dbg!(path);
-        todo!()
+        assert_eq!(path.len(), 3);
+        assert_eq!(path[0].to_string(), "kl,l->k | arg2,arg3->out1");
+        assert_eq!(path[1].to_string(), "k,jk->j | out1,arg1->out2");
+        assert_eq!(path[2].to_string(), "j,ij->i | out2,arg0->out0");
+        Ok(())
     }
 }

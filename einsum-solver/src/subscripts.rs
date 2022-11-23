@@ -64,6 +64,12 @@ impl fmt::Debug for Subscripts {
     }
 }
 
+impl fmt::Display for Subscripts {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
+}
+
 impl Subscripts {
     /// Returns $\alpha$ if this subscripts requires $O(N^\alpha)$ floating point operation
     pub fn compute_order(&self) -> usize {
