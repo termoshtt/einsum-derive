@@ -38,9 +38,9 @@ pub fn brute_force(names: &mut Namespace, subscripts: Subscripts) -> Result<Path
             let mut pos = BTreeSet::new();
             for i in 0..n {
                 if m % 2 == 1 {
-                    pos.insert(subscripts.inputs[i].position().clone());
+                    pos.insert(*subscripts.inputs[i].position());
                 }
-                m = m / 2;
+                m /= 2;
             }
             // At least two tensors, and not be all
             if pos.len() >= 2 && pos.len() < n {
