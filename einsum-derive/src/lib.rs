@@ -31,19 +31,34 @@ use syn::parse::Parser;
 /// This proc-macro wil compile the input subscripts `"ij,jk->ik"`
 /// to generate Rust code executing corresponding operation.
 ///
-/// If the subscripts and the number of input mismatches,
-/// this raises compile error:
+/// Examples
+/// ---------
 ///
-/// ```compile_fail
-/// use ndarray::array;
-/// use einsum_derive::einsum;
+/// - Take diagonal elements
 ///
-/// let a = array![
-///   [1.0, 2.0],
-///   [3.0, 4.0]
-/// ];
-/// let c = einsum!("ij,jk->ik", a /* needs one more arg */);
-/// ```
+///   ```
+///   use ndarray::array;
+///   use einsum_derive::einsum;
+///
+///   let a = array![[1.0, 2.0], [3.0, 4.0]];
+///   let d = einsum!("ii->i", a);
+///   assert_eq!(d, array![1.0, 4.0]);
+///   ```
+///
+/// - If the subscripts and the number of input mismatches,
+///   this raises compile error:
+///
+///   ```compile_fail
+///   use ndarray::array;
+///   use einsum_derive::einsum;
+///
+///   let a = array![
+///     [1.0, 2.0],
+///     [3.0, 4.0]
+///   ];
+///   let c = einsum!("ij,jk->ik", a /* needs one more arg */);
+///   ```
+///
 #[proc_macro_error]
 #[proc_macro]
 pub fn einsum(input: TokenStream) -> TokenStream {
