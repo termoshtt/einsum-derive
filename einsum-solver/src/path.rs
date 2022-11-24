@@ -39,7 +39,7 @@ pub fn brute_force(names: &mut Namespace, subscripts: Subscripts) -> Result<Path
     }
 
     let n = subscripts.inputs.len();
-    let subpaths = (0..2_usize.pow(n as u32))
+    let mut subpaths = (0..2_usize.pow(n as u32))
         .filter_map(|mut m| {
             // create combinations specifying which tensors are used
             let mut pos = BTreeSet::new();
@@ -64,9 +64,10 @@ pub fn brute_force(names: &mut Namespace, subscripts: Subscripts) -> Result<Path
             Ok(sub)
         })
         .collect::<Result<Vec<Path>>>()?;
+    subpaths.push(Path(vec![subscripts]));
     Ok(subpaths
         .into_iter()
-        .min_by_key(|path| path.compute_order())
+        .min_by_key(|path| (path.compute_order(), path.memory_order()))
         .expect("subpath never be empty"))
 }
 
@@ -96,15 +97,13 @@ mod test {
         Ok(())
     }
 
-    // i - 1 - k - 2 - m - 4 - n
-    //     |       |
-    //     j - 3 - l
     #[test]
-    fn brute_force_ijk_jl_klm_mn() -> Result<()> {
+    fn brute_force_i_i_i() -> Result<()> {
         let mut names = Namespace::init();
-        let subscripts = Subscripts::from_raw_indices(&mut names, "ijk,jl,klm,mn")?;
+        let subscripts = Subscripts::from_raw_indices(&mut names, "i,i,i->")?;
         let path = brute_force(&mut names, subscripts)?;
-        dbg!(path);
-        todo!()
+        assert_eq!(path.len(), 1);
+        assert_eq!(path[0].to_string(), "i,i,i-> | arg0,arg1,arg2->out0");
+        Ok(())
     }
 }
