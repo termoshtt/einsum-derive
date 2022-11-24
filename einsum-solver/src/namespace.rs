@@ -1,3 +1,5 @@
+use std::fmt;
+
 /// Names of tensors
 ///
 /// As the crate level document explains,
@@ -19,17 +21,32 @@ impl Namespace {
 
     /// Issue new identifier
     pub fn new_ident(&mut self) -> Position {
-        let pos = Position::Intermidiate(self.last);
+        let pos = Position::Out(self.last);
         self.last += 1;
         pos
     }
 }
 
 /// Which tensor the subscript specifies
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
 pub enum Position {
     /// The tensor which user inputs as N-th argument of einsum
-    User(usize),
+    Arg(usize),
     /// The tensor created by einsum in its N-th step
-    Intermidiate(usize),
+    Out(usize),
+}
+
+impl fmt::Debug for Position {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Position::Arg(n) => write!(f, "arg{}", n),
+            Position::Out(n) => write!(f, "out{}", n),
+        }
+    }
+}
+
+impl fmt::Display for Position {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
 }

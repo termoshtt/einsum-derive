@@ -3,6 +3,7 @@ use crate::{namespace::*, parser::*};
 use anyhow::Result;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    fmt,
     str::FromStr,
 };
 
@@ -33,12 +34,40 @@ impl Subscript {
 
 #[cfg_attr(doc, katexit::katexit)]
 /// Einsum subscripts with tensor names, e.g. `ij,jk->ik | arg0 arg1 -> out`
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Subscripts {
     /// Input subscript, `ij` and `jk`
     pub inputs: Vec<Subscript>,
     /// Output subscript.
     pub output: Subscript,
+}
+
+// `ij,jk->ik | arg0,arg1->out0` format
+impl fmt::Debug for Subscripts {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (n, input) in self.inputs.iter().enumerate() {
+            write!(f, "{}", input.raw)?;
+            if n < self.inputs.len() - 1 {
+                write!(f, ",")?;
+            }
+        }
+        write!(f, "->{} | ", self.output.raw)?;
+
+        for (n, input) in self.inputs.iter().enumerate() {
+            write!(f, "{}", input.position)?;
+            if n < self.inputs.len() - 1 {
+                write!(f, ",")?;
+            }
+        }
+        write!(f, "->{}", self.output.position)?;
+        Ok(())
+    }
+}
+
+impl fmt::Display for Subscripts {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
 }
 
 impl Subscripts {
@@ -91,7 +120,7 @@ impl Subscripts {
             .enumerate()
             .map(|(i, indices)| Subscript {
                 raw: indices.clone(),
-                position: Position::User(i),
+                position: Position::Arg(i),
             })
             .collect();
         let position = names.new_ident();
@@ -178,7 +207,7 @@ impl Subscripts {
     /// let base = Subscripts::from_raw_indices(&mut names, "ij,jk,kl->il").unwrap();
     ///
     /// let (ijjk, ikkl) = base.factorize(&mut names,
-    ///   btreeset!{ Position::User(0), Position::User(1) }
+    ///   btreeset!{ Position::Arg(0), Position::Arg(1) }
     /// ).unwrap();
     /// ```
     pub fn factorize(
