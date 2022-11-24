@@ -30,9 +30,15 @@ impl Path {
             .max()
             .expect("self.0 never be empty")
     }
+
+    pub fn brute_force(indices: &str) -> Result<Self> {
+        let mut names = Namespace::init();
+        let subscripts = Subscripts::from_raw_indices(&mut names, indices)?;
+        brute_force_work(&mut names, subscripts)
+    }
 }
 
-pub fn brute_force(names: &mut Namespace, subscripts: Subscripts) -> Result<Path> {
+fn brute_force_work(names: &mut Namespace, subscripts: Subscripts) -> Result<Path> {
     if subscripts.inputs.len() <= 2 {
         // Cannot be factorized anymore
         return Ok(Path(vec![subscripts]));
@@ -59,7 +65,7 @@ pub fn brute_force(names: &mut Namespace, subscripts: Subscripts) -> Result<Path
         .map(|pos| {
             let mut names = names.clone();
             let (inner, outer) = subscripts.factorize(&mut names, pos)?;
-            let mut sub = brute_force(&mut names, outer)?;
+            let mut sub = brute_force_work(&mut names, outer)?;
             sub.0.insert(0, inner);
             Ok(sub)
         })
@@ -77,9 +83,7 @@ mod test {
 
     #[test]
     fn brute_force_ij_jk() -> Result<()> {
-        let mut names = Namespace::init();
-        let subscripts = Subscripts::from_raw_indices(&mut names, "ij,jk->ik")?;
-        let path = brute_force(&mut names, subscripts)?;
+        let path = Path::brute_force("ij,jk->ik")?;
         assert_eq!(path.len(), 1);
         assert_eq!(path[0].to_string(), "ij,jk->ik | arg0,arg1->out0");
         Ok(())
@@ -87,9 +91,7 @@ mod test {
 
     #[test]
     fn brute_force_ij_jk_kl_l() -> Result<()> {
-        let mut names = Namespace::init();
-        let subscripts = Subscripts::from_raw_indices(&mut names, "ij,jk,kl,l->i")?;
-        let path = brute_force(&mut names, subscripts)?;
+        let path = Path::brute_force("ij,jk,kl,l->i")?;
         assert_eq!(path.len(), 3);
         assert_eq!(path[0].to_string(), "kl,l->k | arg2,arg3->out1");
         assert_eq!(path[1].to_string(), "k,jk->j | out1,arg1->out2");
@@ -99,9 +101,7 @@ mod test {
 
     #[test]
     fn brute_force_i_i_i() -> Result<()> {
-        let mut names = Namespace::init();
-        let subscripts = Subscripts::from_raw_indices(&mut names, "i,i,i->")?;
-        let path = brute_force(&mut names, subscripts)?;
+        let path = Path::brute_force("i,i,i->")?;
         assert_eq!(path.len(), 1);
         assert_eq!(path[0].to_string(), "i,i,i-> | arg0,arg1,arg2->out0");
         Ok(())
