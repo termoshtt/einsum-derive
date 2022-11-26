@@ -1,9 +1,8 @@
-use einsum_solver::subscripts::Subscripts;
+use crate::{codegen::ndarray::ident::*, subscripts::Subscripts};
+
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
 use std::collections::{hash_map::Entry, HashMap};
-
-use crate::ident::*;
 
 /// Generate for loop
 ///
@@ -167,8 +166,9 @@ pub fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::format::format_block;
-    use einsum_solver::{namespace::Namespace, subscripts::Subscripts};
+    use crate::{
+        codegen::ndarray::format::format_block, namespace::Namespace, subscripts::Subscripts,
+    };
 
     #[test]
     fn contraction_snapshots() {
