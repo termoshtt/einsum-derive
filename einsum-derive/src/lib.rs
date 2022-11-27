@@ -77,7 +77,8 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
 
 #[cfg(test)]
 mod test {
-    use super::{format::format_block, *};
+    use super::*;
+    use einsum_solver::codegen::format_block;
     use std::str::FromStr;
 
     #[test]

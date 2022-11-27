@@ -166,9 +166,7 @@ pub fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{
-        codegen::ndarray::format::format_block, namespace::Namespace, subscripts::Subscripts,
-    };
+    use crate::{codegen::format_block, namespace::Namespace, subscripts::Subscripts};
 
     #[test]
     fn contraction_snapshots() {
