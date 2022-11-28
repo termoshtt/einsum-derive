@@ -1,4 +1,4 @@
-//! Code generation for einsum for specific linear algebra libraries.
+//! Generate einsum implementation
 
 mod format;
 pub use format::format_block;
