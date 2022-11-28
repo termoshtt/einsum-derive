@@ -1,3 +1,5 @@
+use proc_macro2::TokenStream;
+use quote::{format_ident, ToTokens, TokenStreamExt};
 use std::fmt;
 
 /// Names of tensors
@@ -48,5 +50,14 @@ impl fmt::Debug for Position {
 impl fmt::Display for Position {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, f)
+    }
+}
+
+impl ToTokens for Position {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            Position::Arg(n) => tokens.append(format_ident!("arg{}", n)),
+            Position::Out(n) => tokens.append(format_ident!("out{}", n)),
+        }
     }
 }

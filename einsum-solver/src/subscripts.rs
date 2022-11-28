@@ -1,6 +1,8 @@
 //! Einsum subscripts, e.g. `ij,jk->ik`
 use crate::{namespace::*, parser::*};
 use anyhow::Result;
+use proc_macro2::TokenStream;
+use quote::ToTokens;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt,
@@ -29,6 +31,12 @@ impl Subscript {
                 start.iter().chain(end.iter()).cloned().collect()
             }
         }
+    }
+}
+
+impl ToTokens for Subscript {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        ToTokens::to_tokens(&self.position, tokens)
     }
 }
 
