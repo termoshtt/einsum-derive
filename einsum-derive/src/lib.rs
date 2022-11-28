@@ -130,15 +130,15 @@ mod test {
                 let (n_1_0, n_1_1) = arg1.dim();
                 assert_eq!(n_j, n_1_0);
                 let n_k = n_1_1;
-                let mut out = ndarray::Array::zeros((n_i, n_k));
+                let mut out0 = ndarray::Array::zeros((n_i, n_k));
                 for i in 0..n_i {
                     for k in 0..n_k {
                         for j in 0..n_j {
-                            out[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
+                            out0[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
                         }
                     }
                 }
-                out
+                out0
             }
             ij_jk__ik(a, b)
         }
