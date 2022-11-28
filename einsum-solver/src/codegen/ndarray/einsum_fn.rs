@@ -1,4 +1,4 @@
-use crate::{codegen::ndarray::ident::*, subscripts::Subscripts};
+use crate::{codegen::ndarray::ident::*, namespace::Position, subscripts::Subscripts};
 
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
@@ -29,14 +29,13 @@ fn contraction_for(indices: &[char], inner: TokenStream2) -> TokenStream2 {
 
 fn contraction_inner(subscripts: &Subscripts) -> TokenStream2 {
     let mut inner_args_tt = Vec::new();
-    for argc in 0..subscripts.inputs.len() {
-        let name = arg_ident(argc);
+    for (argc, arg) in subscripts.inputs.iter().enumerate() {
         let mut index = Vec::new();
         for i in subscripts.inputs[argc].indices() {
             index.push(index_ident(i));
         }
         inner_args_tt.push(quote! {
-            #name[(#(#index),*)]
+            #arg[(#(#index),*)]
         })
     }
     let mut inner_mul = None;
@@ -47,7 +46,7 @@ fn contraction_inner(subscripts: &Subscripts) -> TokenStream2 {
         }
     }
 
-    let output_ident = output_ident();
+    let output_ident = &subscripts.output;
     let mut output_indices = Vec::new();
     for i in &subscripts.output.indices() {
         let index = index_ident(*i);
@@ -83,12 +82,11 @@ fn contraction(subscripts: &Subscripts) -> TokenStream2 {
 fn array_size(subscripts: &Subscripts) -> Vec<TokenStream2> {
     let mut n_idents: HashMap<char, proc_macro2::Ident> = HashMap::new();
     let mut tt = Vec::new();
-    for argc in 0..subscripts.inputs.len() {
-        let name = arg_ident(argc);
+    for (argc, arg) in subscripts.inputs.iter().enumerate() {
         let mut index = Vec::new();
         let mut n_index_each = Vec::new();
         let mut def_or_assert = Vec::new();
-        for (m, i) in subscripts.inputs[argc].indices().into_iter().enumerate() {
+        for (m, i) in arg.indices().into_iter().enumerate() {
             index.push(index_ident(i));
             let n = n_each_ident(argc, m);
             match n_idents.entry(i) {
@@ -109,7 +107,7 @@ fn array_size(subscripts: &Subscripts) -> Vec<TokenStream2> {
             n_index_each.push(n);
         }
         tt.push(quote! {
-            let (#(#n_index_each),*) = #name.dim();
+            let (#(#n_index_each),*) = #arg.dim();
             #( #def_or_assert )*
         });
     }
@@ -118,7 +116,7 @@ fn array_size(subscripts: &Subscripts) -> Vec<TokenStream2> {
 
 fn def_output_array(subscripts: &Subscripts) -> TokenStream2 {
     // Define output array
-    let output_ident = output_ident();
+    let output_ident = &subscripts.output;
     let mut n_output = Vec::new();
     for i in subscripts.output.indices() {
         n_output.push(n_ident(i));
@@ -132,7 +130,7 @@ pub fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
     let fn_name = syn::Ident::new(&subscripts.escaped_ident(), Span::call_site());
     let n = subscripts.inputs.len();
 
-    let args: Vec<syn::Ident> = (0..n).map(arg_ident).collect();
+    let args: Vec<_> = (0..n).map(|n| Position::Arg(n)).collect();
     let storages: Vec<syn::Ident> = (0..n).map(|n| quote::format_ident!("S{}", n)).collect();
     let dims: Vec<syn::Path> = subscripts
         .inputs
@@ -143,7 +141,7 @@ pub fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
     let out_dim = dim(subscripts.output.indices().len());
 
     let array_size = array_size(subscripts);
-    let output_ident = output_ident();
+    let output_ident = &subscripts.output;
     let output_tt = def_output_array(subscripts);
     let contraction_tt = contraction(subscripts);
 
