@@ -124,12 +124,18 @@ mod test {
                 S0: ndarray::Data<Elem = T>,
                 S1: ndarray::Data<Elem = T>,
             {
-                let (n_0_0, n_0_1) = arg0.dim();
-                let n_i = n_0_0;
-                let n_j = n_0_1;
-                let (n_1_0, n_1_1) = arg1.dim();
-                assert_eq!(n_j, n_1_0);
-                let n_k = n_1_1;
+                let (n_i, n_j) = arg0.dim();
+                let (_, n_k) = arg1.dim();
+                {
+                    let (n_0, n_1) = arg0.dim();
+                    assert_eq!(n_0, n_i);
+                    assert_eq!(n_1, n_j);
+                }
+                {
+                    let (n_0, n_1) = arg1.dim();
+                    assert_eq!(n_0, n_j);
+                    assert_eq!(n_1, n_k);
+                }
                 let mut out0 = ndarray::Array::zeros((n_i, n_k));
                 for i in 0..n_i {
                     for k in 0..n_k {

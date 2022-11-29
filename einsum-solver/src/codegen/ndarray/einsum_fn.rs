@@ -2,7 +2,7 @@ use crate::{codegen::ndarray::ident::*, namespace::Position, subscripts::Subscri
 
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::collections::HashSet;
 
 /// Generate for loop
 ///
@@ -100,44 +100,25 @@ pub fn define_array_size(subscripts: &Subscripts) -> TokenStream2 {
             let (#(#n_ident),*) = #arg.dim();
         });
     }
-    quote! {
-        #(#tt)*
-    }
+    quote! { #(#tt)* }
 }
 
-fn array_size(subscripts: &Subscripts) -> Vec<TokenStream2> {
-    let mut n_idents: HashMap<char, proc_macro2::Ident> = HashMap::new();
+/// Generate `assert_eq!` to check the size of user input tensors
+pub fn array_size_asserts(subscripts: &Subscripts) -> TokenStream2 {
     let mut tt = Vec::new();
-    for (argc, arg) in subscripts.inputs.iter().enumerate() {
-        let mut index = Vec::new();
-        let mut n_index_each = Vec::new();
-        let mut def_or_assert = Vec::new();
-        for (m, i) in arg.indices().into_iter().enumerate() {
-            index.push(index_ident(i));
-            let n = n_each_ident(argc, m);
-            match n_idents.entry(i) {
-                Entry::Occupied(entry) => {
-                    let n_ = entry.get();
-                    def_or_assert.push(quote! {
-                        assert_eq!(#n_, #n);
-                    });
-                }
-                Entry::Vacant(entry) => {
-                    let n_ident = n_ident(i);
-                    def_or_assert.push(quote! {
-                        let #n_ident = #n;
-                    });
-                    entry.insert(n_ident);
-                }
-            }
-            n_index_each.push(n);
-        }
+    for arg in &subscripts.inputs {
+        // local variable, e.g. `n_2`
+        let n_each: Vec<_> = (0..arg.indices().len())
+            .map(|m| quote::format_ident!("n_{}", m))
+            .collect();
+        // size of index defined previously, e.g. `n_i`
+        let n: Vec<_> = arg.indices().into_iter().map(|i| n_ident(i)).collect();
         tt.push(quote! {
-            let (#(#n_index_each),*) = #arg.dim();
-            #( #def_or_assert )*
+            let (#(#n_each),*) = #arg.dim();
+            #(assert_eq!(#n_each, #n);)*
         });
     }
-    tt
+    quote! { #({ #tt })* }
 }
 
 fn def_output_array(subscripts: &Subscripts) -> TokenStream2 {
@@ -166,7 +147,8 @@ pub fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
 
     let out_dim = dim(subscripts.output.indices().len());
 
-    let array_size = array_size(subscripts);
+    let array_size = define_array_size(subscripts);
+    let array_size_asserts = array_size_asserts(subscripts);
     let output_ident = &subscripts.output;
     let output_tt = def_output_array(subscripts);
     let contraction_tt = contraction(subscripts);
@@ -179,7 +161,8 @@ pub fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
             T: ndarray::LinalgScalar,
             #( #storages: ndarray::Data<Elem = T> ),*
         {
-            #(#array_size)*
+            #array_size
+            #array_size_asserts
             #output_tt
             #contraction_tt
             #output_ident
@@ -233,12 +216,18 @@ mod test {
             S0: ndarray::Data<Elem = T>,
             S1: ndarray::Data<Elem = T>,
         {
-            let (n_0_0, n_0_1) = arg0.dim();
-            let n_i = n_0_0;
-            let n_j = n_0_1;
-            let (n_1_0, n_1_1) = arg1.dim();
-            assert_eq!(n_j, n_1_0);
-            let n_k = n_1_1;
+            let (n_i, n_j) = arg0.dim();
+            let (_, n_k) = arg1.dim();
+            {
+                let (n_0, n_1) = arg0.dim();
+                assert_eq!(n_0, n_i);
+                assert_eq!(n_1, n_j);
+            }
+            {
+                let (n_0, n_1) = arg1.dim();
+                assert_eq!(n_0, n_j);
+                assert_eq!(n_1, n_k);
+            }
             let mut out0 = ndarray::Array::zeros((n_i, n_k));
             for i in 0..n_i {
                 for k in 0..n_k {
