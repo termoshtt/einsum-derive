@@ -2,7 +2,7 @@ use crate::{codegen::ndarray::ident::*, namespace::Position, subscripts::Subscri
 
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{hash_map::Entry, HashMap, HashSet};
 
 /// Generate for loop
 ///
@@ -77,6 +77,32 @@ fn contraction(subscripts: &Subscripts) -> TokenStream2 {
 
     let inner = contraction_inner(subscripts);
     contraction_for(&indices, inner)
+}
+
+/// Define the index size identifiers, e.g. `n_i`
+pub fn define_array_size(subscripts: &Subscripts) -> TokenStream2 {
+    let mut appeared: HashSet<char> = HashSet::new();
+    let mut tt = Vec::new();
+    for arg in subscripts.inputs.iter() {
+        let n_ident: Vec<syn::Ident> = arg
+            .indices()
+            .into_iter()
+            .map(|i| {
+                if appeared.contains(&i) {
+                    quote::format_ident!("_")
+                } else {
+                    appeared.insert(i);
+                    n_ident(i)
+                }
+            })
+            .collect();
+        tt.push(quote! {
+            let (#(#n_ident),*) = #arg.dim();
+        });
+    }
+    quote! {
+        #(#tt)*
+    }
 }
 
 fn array_size(subscripts: &Subscripts) -> Vec<TokenStream2> {
@@ -163,19 +189,29 @@ pub fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use crate::{codegen::format_block, namespace::Namespace, subscripts::Subscripts};
+
+    #[test]
+    fn define_array_size() {
+        let mut namespace = Namespace::init();
+        let subscripts = Subscripts::from_raw_indices(&mut namespace, "ij,jk->ik").unwrap();
+        let tt = format_block(super::define_array_size(&subscripts).to_string());
+        insta::assert_snapshot!(tt, @r###"
+        let (n_i, n_j) = arg0.dim();
+        let (_, n_k) = arg1.dim();
+        "###);
+    }
 
     #[test]
     fn contraction_snapshots() {
         let mut namespace = Namespace::init();
         let subscripts = Subscripts::from_raw_indices(&mut namespace, "ij,jk->ik").unwrap();
-        let tt = format_block(contraction(&subscripts).to_string());
+        let tt = format_block(super::contraction(&subscripts).to_string());
         insta::assert_snapshot!(tt, @r###"
         for i in 0..n_i {
             for k in 0..n_k {
                 for j in 0..n_j {
-                    out[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
+                    out0[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
                 }
             }
         }
@@ -186,7 +222,7 @@ mod test {
     fn einsum_fn_snapshots() {
         let mut namespace = Namespace::init();
         let subscripts = Subscripts::from_raw_indices(&mut namespace, "ij,jk->ik").unwrap();
-        let tt = format_block(def_einsum_fn(&subscripts).to_string());
+        let tt = format_block(super::def_einsum_fn(&subscripts).to_string());
         insta::assert_snapshot!(tt, @r###"
         fn ij_jk__ik<T, S0, S1>(
             arg0: ndarray::ArrayBase<S0, ndarray::Ix2>,
@@ -203,15 +239,15 @@ mod test {
             let (n_1_0, n_1_1) = arg1.dim();
             assert_eq!(n_j, n_1_0);
             let n_k = n_1_1;
-            let mut out = ndarray::Array::zeros((n_i, n_k));
+            let mut out0 = ndarray::Array::zeros((n_i, n_k));
             for i in 0..n_i {
                 for k in 0..n_k {
                     for j in 0..n_j {
-                        out[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
+                        out0[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
                     }
                 }
             }
-            out
+            out0
         }
         "###);
     }
