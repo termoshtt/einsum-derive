@@ -1,9 +1,23 @@
-use einsum_solver::subscripts::Subscripts;
+//! Generate einsum function with naive loop
+
+use crate::{namespace::Position, subscripts::Subscripts};
+
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::HashSet;
 
-use crate::ident::*;
+fn dim(n: usize) -> syn::Path {
+    let ix = quote::format_ident!("Ix{}", n);
+    syn::parse_quote! { ndarray::#ix }
+}
+
+fn index_ident(i: char) -> syn::Ident {
+    quote::format_ident!("{}", i)
+}
+
+fn n_ident(i: char) -> syn::Ident {
+    quote::format_ident!("n_{}", i)
+}
 
 /// Generate for loop
 ///
@@ -30,14 +44,13 @@ fn contraction_for(indices: &[char], inner: TokenStream2) -> TokenStream2 {
 
 fn contraction_inner(subscripts: &Subscripts) -> TokenStream2 {
     let mut inner_args_tt = Vec::new();
-    for argc in 0..subscripts.inputs.len() {
-        let name = arg_ident(argc);
+    for (argc, arg) in subscripts.inputs.iter().enumerate() {
         let mut index = Vec::new();
         for i in subscripts.inputs[argc].indices() {
             index.push(index_ident(i));
         }
         inner_args_tt.push(quote! {
-            #name[(#(#index),*)]
+            #arg[(#(#index),*)]
         })
     }
     let mut inner_mul = None;
@@ -48,7 +61,7 @@ fn contraction_inner(subscripts: &Subscripts) -> TokenStream2 {
         }
     }
 
-    let output_ident = output_ident();
+    let output_ident = &subscripts.output;
     let mut output_indices = Vec::new();
     for i in &subscripts.output.indices() {
         let index = index_ident(*i);
@@ -59,19 +72,26 @@ fn contraction_inner(subscripts: &Subscripts) -> TokenStream2 {
     }
 }
 
-/// Generate contraction parts, e.g.
+/// Generate naive contraction loop, e.g.
 ///
-/// ```ignore
+/// ```
+/// # use ndarray::Array2;
+/// # let arg0 = Array2::<f64>::zeros((3, 3));
+/// # let arg1 = Array2::<f64>::zeros((3, 3));
+/// # let mut out0 = Array2::<f64>::zeros((3, 3));
+/// # let n_i = 3;
+/// # let n_j = 3;
+/// # let n_k = 3;
 /// for i in 0..n_i {
 ///     for k in 0..n_k {
 ///         for j in 0..n_j {
-///             out[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
+///             out0[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
 ///         }
 ///     }
 /// }
 /// ```
 ///
-fn contraction(subscripts: &Subscripts) -> TokenStream2 {
+pub fn contraction(subscripts: &Subscripts) -> TokenStream2 {
     let mut indices: Vec<char> = subscripts.output.indices();
     for i in subscripts.contraction_indices() {
         indices.push(i);
@@ -81,45 +101,51 @@ fn contraction(subscripts: &Subscripts) -> TokenStream2 {
     contraction_for(&indices, inner)
 }
 
-fn array_size(subscripts: &Subscripts) -> Vec<TokenStream2> {
-    let mut n_idents: HashMap<char, proc_macro2::Ident> = HashMap::new();
+/// Define the index size identifiers, e.g. `n_i`
+pub fn define_array_size(subscripts: &Subscripts) -> TokenStream2 {
+    let mut appeared: HashSet<char> = HashSet::new();
     let mut tt = Vec::new();
-    for argc in 0..subscripts.inputs.len() {
-        let name = arg_ident(argc);
-        let mut index = Vec::new();
-        let mut n_index_each = Vec::new();
-        let mut def_or_assert = Vec::new();
-        for (m, i) in subscripts.inputs[argc].indices().into_iter().enumerate() {
-            index.push(index_ident(i));
-            let n = n_each_ident(argc, m);
-            match n_idents.entry(i) {
-                Entry::Occupied(entry) => {
-                    let n_ = entry.get();
-                    def_or_assert.push(quote! {
-                        assert_eq!(#n_, #n);
-                    });
+    for arg in subscripts.inputs.iter() {
+        let n_ident: Vec<syn::Ident> = arg
+            .indices()
+            .into_iter()
+            .map(|i| {
+                if appeared.contains(&i) {
+                    quote::format_ident!("_")
+                } else {
+                    appeared.insert(i);
+                    n_ident(i)
                 }
-                Entry::Vacant(entry) => {
-                    let n_ident = n_ident(i);
-                    def_or_assert.push(quote! {
-                        let #n_ident = #n;
-                    });
-                    entry.insert(n_ident);
-                }
-            }
-            n_index_each.push(n);
-        }
+            })
+            .collect();
         tt.push(quote! {
-            let (#(#n_index_each),*) = #name.dim();
-            #( #def_or_assert )*
+            let (#(#n_ident),*) = #arg.dim();
         });
     }
-    tt
+    quote! { #(#tt)* }
 }
 
-fn def_output_array(subscripts: &Subscripts) -> TokenStream2 {
+/// Generate `assert_eq!` to check the size of user input tensors
+pub fn array_size_asserts(subscripts: &Subscripts) -> TokenStream2 {
+    let mut tt = Vec::new();
+    for arg in &subscripts.inputs {
+        // local variable, e.g. `n_2`
+        let n_each: Vec<_> = (0..arg.indices().len())
+            .map(|m| quote::format_ident!("n_{}", m))
+            .collect();
+        // size of index defined previously, e.g. `n_i`
+        let n: Vec<_> = arg.indices().into_iter().map(|i| n_ident(i)).collect();
+        tt.push(quote! {
+            let (#(#n_each),*) = #arg.dim();
+            #(assert_eq!(#n_each, #n);)*
+        });
+    }
+    quote! { #({ #tt })* }
+}
+
+fn define_output_array(subscripts: &Subscripts) -> TokenStream2 {
     // Define output array
-    let output_ident = output_ident();
+    let output_ident = &subscripts.output;
     let mut n_output = Vec::new();
     for i in subscripts.output.indices() {
         n_output.push(n_ident(i));
@@ -129,11 +155,11 @@ fn def_output_array(subscripts: &Subscripts) -> TokenStream2 {
     }
 }
 
-pub fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
+pub fn define(subscripts: &Subscripts) -> TokenStream2 {
     let fn_name = syn::Ident::new(&subscripts.escaped_ident(), Span::call_site());
     let n = subscripts.inputs.len();
 
-    let args: Vec<syn::Ident> = (0..n).map(arg_ident).collect();
+    let args: Vec<_> = (0..n).map(|n| Position::Arg(n)).collect();
     let storages: Vec<syn::Ident> = (0..n).map(|n| quote::format_ident!("S{}", n)).collect();
     let dims: Vec<syn::Path> = subscripts
         .inputs
@@ -143,9 +169,10 @@ pub fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
 
     let out_dim = dim(subscripts.output.indices().len());
 
-    let array_size = array_size(subscripts);
-    let output_ident = output_ident();
-    let output_tt = def_output_array(subscripts);
+    let array_size = define_array_size(subscripts);
+    let array_size_asserts = array_size_asserts(subscripts);
+    let output_ident = &subscripts.output;
+    let output_tt = define_output_array(subscripts);
     let contraction_tt = contraction(subscripts);
 
     quote! {
@@ -156,7 +183,8 @@ pub fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
             T: ndarray::LinalgScalar,
             #( #storages: ndarray::Data<Elem = T> ),*
         {
-            #(#array_size)*
+            #array_size
+            #array_size_asserts
             #output_tt
             #contraction_tt
             #output_ident
@@ -166,20 +194,29 @@ pub fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::format::format_block;
-    use einsum_solver::{namespace::Namespace, subscripts::Subscripts};
+    use crate::{codegen::format_block, namespace::Namespace, subscripts::Subscripts};
+
+    #[test]
+    fn define_array_size() {
+        let mut namespace = Namespace::init();
+        let subscripts = Subscripts::from_raw_indices(&mut namespace, "ij,jk->ik").unwrap();
+        let tt = format_block(super::define_array_size(&subscripts).to_string());
+        insta::assert_snapshot!(tt, @r###"
+        let (n_i, n_j) = arg0.dim();
+        let (_, n_k) = arg1.dim();
+        "###);
+    }
 
     #[test]
     fn contraction_snapshots() {
         let mut namespace = Namespace::init();
         let subscripts = Subscripts::from_raw_indices(&mut namespace, "ij,jk->ik").unwrap();
-        let tt = format_block(contraction(&subscripts).to_string());
+        let tt = format_block(super::contraction(&subscripts).to_string());
         insta::assert_snapshot!(tt, @r###"
         for i in 0..n_i {
             for k in 0..n_k {
                 for j in 0..n_j {
-                    out[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
+                    out0[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
                 }
             }
         }
@@ -190,7 +227,7 @@ mod test {
     fn einsum_fn_snapshots() {
         let mut namespace = Namespace::init();
         let subscripts = Subscripts::from_raw_indices(&mut namespace, "ij,jk->ik").unwrap();
-        let tt = format_block(def_einsum_fn(&subscripts).to_string());
+        let tt = format_block(super::define(&subscripts).to_string());
         insta::assert_snapshot!(tt, @r###"
         fn ij_jk__ik<T, S0, S1>(
             arg0: ndarray::ArrayBase<S0, ndarray::Ix2>,
@@ -201,21 +238,27 @@ mod test {
             S0: ndarray::Data<Elem = T>,
             S1: ndarray::Data<Elem = T>,
         {
-            let (n_0_0, n_0_1) = arg0.dim();
-            let n_i = n_0_0;
-            let n_j = n_0_1;
-            let (n_1_0, n_1_1) = arg1.dim();
-            assert_eq!(n_j, n_1_0);
-            let n_k = n_1_1;
-            let mut out = ndarray::Array::zeros((n_i, n_k));
+            let (n_i, n_j) = arg0.dim();
+            let (_, n_k) = arg1.dim();
+            {
+                let (n_0, n_1) = arg0.dim();
+                assert_eq!(n_0, n_i);
+                assert_eq!(n_1, n_j);
+            }
+            {
+                let (n_0, n_1) = arg1.dim();
+                assert_eq!(n_0, n_j);
+                assert_eq!(n_1, n_k);
+            }
+            let mut out0 = ndarray::Array::zeros((n_i, n_k));
             for i in 0..n_i {
                 for k in 0..n_k {
                     for j in 0..n_j {
-                        out[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
+                        out0[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
                     }
                 }
             }
-            out
+            out0
         }
         "###);
     }

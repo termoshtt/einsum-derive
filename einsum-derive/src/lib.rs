@@ -1,17 +1,11 @@
 //! proc-macro based einsum implementation
 
-use einsum_solver::{namespace::*, subscripts::Subscripts};
+use einsum_solver::{codegen::ndarray::*, namespace::*, subscripts::Subscripts};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_error::{abort_call_site, proc_macro_error, OptionExt};
 use quote::quote;
-
-mod args;
-mod einsum_fn;
-mod ident;
-
-#[cfg(test)]
-mod format;
+use syn::parse::Parser;
 
 /// proc-macro based einsum
 ///
@@ -57,7 +51,7 @@ pub fn einsum(input: TokenStream) -> TokenStream {
 }
 
 fn einsum2(input: TokenStream2) -> TokenStream2 {
-    let (subscripts, args) = args::parse(input);
+    let (subscripts, args) = parse(input);
 
     // Validate subscripts
     let mut names = Namespace::init();
@@ -72,7 +66,7 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
         );
     }
 
-    let einsum_fn = einsum_fn::def_einsum_fn(&subscripts);
+    let einsum_fn = naive::define(&subscripts);
     let fn_name = syn::Ident::new(&subscripts.escaped_ident(), Span::call_site());
     quote! {
         {
@@ -82,10 +76,38 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
     }
 }
 
+fn parse(input: TokenStream2) -> (String, Vec<syn::Expr>) {
+    let parser = syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated;
+    let args = parser.parse2(input).expect("Invalid input for einsum!");
+    let mut iter = args.into_iter();
+    let subscripts = if let Some(syn::Expr::Lit(syn::ExprLit {
+        lit: syn::Lit::Str(lit),
+        attrs: _,
+    })) = iter.next()
+    {
+        lit.value()
+    } else {
+        panic!("einsum! must start with subscript string literal")
+    };
+    let args = iter.collect::<Vec<_>>();
+    (subscripts, args)
+}
+
 #[cfg(test)]
 mod test {
-    use super::{format::format_block, *};
+    use super::*;
+    use einsum_solver::codegen::format_block;
     use std::str::FromStr;
+
+    #[test]
+    fn test_parse() {
+        let input = TokenStream2::from_str(r#""ij,jk->ik", a, b"#).unwrap();
+        let (subscripts, exprs) = parse(input);
+        assert_eq!(subscripts, "ij,jk->ik");
+        assert_eq!(exprs.len(), 2);
+        assert_eq!(exprs[0], syn::parse_str::<syn::Expr>("a").unwrap());
+        assert_eq!(exprs[1], syn::parse_str::<syn::Expr>("b").unwrap());
+    }
 
     #[test]
     fn test_snapshots() {
@@ -102,21 +124,27 @@ mod test {
                 S0: ndarray::Data<Elem = T>,
                 S1: ndarray::Data<Elem = T>,
             {
-                let (n_0_0, n_0_1) = arg0.dim();
-                let n_i = n_0_0;
-                let n_j = n_0_1;
-                let (n_1_0, n_1_1) = arg1.dim();
-                assert_eq!(n_j, n_1_0);
-                let n_k = n_1_1;
-                let mut out = ndarray::Array::zeros((n_i, n_k));
+                let (n_i, n_j) = arg0.dim();
+                let (_, n_k) = arg1.dim();
+                {
+                    let (n_0, n_1) = arg0.dim();
+                    assert_eq!(n_0, n_i);
+                    assert_eq!(n_1, n_j);
+                }
+                {
+                    let (n_0, n_1) = arg1.dim();
+                    assert_eq!(n_0, n_j);
+                    assert_eq!(n_1, n_k);
+                }
+                let mut out0 = ndarray::Array::zeros((n_i, n_k));
                 for i in 0..n_i {
                     for k in 0..n_k {
                         for j in 0..n_j {
-                            out[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
+                            out0[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
                         }
                     }
                 }
-                out
+                out0
             }
             ij_jk__ik(a, b)
         }

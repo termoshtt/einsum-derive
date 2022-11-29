@@ -10,5 +10,12 @@ anyhow = "1.0.66"
 katexit = "0.1.2"
 nom = "7.1.1"
 
+# for codegen
+proc-macro2 = "1.0.46"
+quote = "1.0.21"
+syn = "1.0.102"
+
 [dev-dependencies]
+insta = "1.21.1"
 maplit = "1.0.2"
+ndarray = "0.15.6"

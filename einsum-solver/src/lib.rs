@@ -156,6 +156,7 @@
 //! and the objective of this crate is to (heuristically) solve this problem.
 //!
 
+pub mod codegen;
 pub mod namespace;
 pub mod parser;
 pub mod path;
