@@ -93,7 +93,7 @@ fn brute_force_work(names: &mut Namespace, subscripts: Subscripts) -> Result<Vec
     subpaths.push(vec![subscripts]);
     Ok(subpaths
         .into_iter()
-        .min_by_key(|path| (compute_order(&path), memory_order(&path)))
+        .min_by_key(|path| (compute_order(path), memory_order(path)))
         .expect("subpath never be empty"))
 }
 

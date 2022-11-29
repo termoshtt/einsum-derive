@@ -80,7 +80,7 @@ pub fn einsum(input: TokenStream) -> TokenStream {
 
 fn einsum2(input: TokenStream2) -> TokenStream2 {
     let (subscripts, args) = parse(input);
-    let arg_ident: Vec<_> = (0..args.len()).map(|i| Position::Arg(i)).collect();
+    let arg_ident: Vec<_> = (0..args.len()).map(Position::Arg).collect();
     let path = Path::brute_force(&subscripts).expect("Failed to construct execution path");
     let fn_defs: Vec<_> = path
         .iter()

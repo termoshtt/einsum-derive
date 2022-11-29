@@ -121,7 +121,7 @@ pub fn array_size_asserts(subscripts: &Subscripts) -> TokenStream2 {
             .map(|m| quote::format_ident!("n_{}", m))
             .collect();
         // size of index defined previously, e.g. `n_i`
-        let n: Vec<_> = arg.indices().into_iter().map(|i| n_ident(i)).collect();
+        let n: Vec<_> = arg.indices().into_iter().map(n_ident).collect();
         tt.push(quote! {
             let (#(#n_each),*) = #arg.dim();
             #(assert_eq!(#n_each, #n);)*

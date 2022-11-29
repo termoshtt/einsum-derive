@@ -13,7 +13,7 @@ use std::fmt;
 
 /// index = `a` | `b` | `c` | `d` | `e` | `f` | `g` | `h` | `i` | `j` | `k` | `l` |`m` | `n` | `o` | `p` | `q` | `r` | `s` | `t` | `u` | `v` | `w` | `x` |`y` | `z`;
 pub fn index(input: &str) -> IResult<&str, char> {
-    satisfy(|c| matches!(c, 'a'..='z')).parse(input)
+    satisfy(|c| c.is_ascii_lowercase()).parse(input)
 }
 
 /// ellipsis = `...`
