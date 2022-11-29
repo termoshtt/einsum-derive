@@ -1,24 +1,22 @@
+//! Generate einsum function with naive loop
+
 use crate::{namespace::Position, subscripts::Subscripts};
 
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
 use std::collections::HashSet;
 
-pub fn dim(n: usize) -> syn::Path {
+fn dim(n: usize) -> syn::Path {
     let ix = quote::format_ident!("Ix{}", n);
     syn::parse_quote! { ndarray::#ix }
 }
 
-pub fn index_ident(i: char) -> syn::Ident {
+fn index_ident(i: char) -> syn::Ident {
     quote::format_ident!("{}", i)
 }
 
-pub fn n_ident(i: char) -> syn::Ident {
+fn n_ident(i: char) -> syn::Ident {
     quote::format_ident!("n_{}", i)
-}
-
-pub fn n_each_ident(argc: usize, i: usize) -> syn::Ident {
-    quote::format_ident!("n_{}_{}", argc, i)
 }
 
 /// Generate for loop
@@ -74,19 +72,26 @@ fn contraction_inner(subscripts: &Subscripts) -> TokenStream2 {
     }
 }
 
-/// Generate contraction parts, e.g.
+/// Generate naive contraction loop, e.g.
 ///
-/// ```ignore
+/// ```
+/// # use ndarray::Array2;
+/// # let arg0 = Array2::<f64>::zeros((3, 3));
+/// # let arg1 = Array2::<f64>::zeros((3, 3));
+/// # let mut out0 = Array2::<f64>::zeros((3, 3));
+/// # let n_i = 3;
+/// # let n_j = 3;
+/// # let n_k = 3;
 /// for i in 0..n_i {
 ///     for k in 0..n_k {
 ///         for j in 0..n_j {
-///             out[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
+///             out0[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
 ///         }
 ///     }
 /// }
 /// ```
 ///
-fn contraction(subscripts: &Subscripts) -> TokenStream2 {
+pub fn contraction(subscripts: &Subscripts) -> TokenStream2 {
     let mut indices: Vec<char> = subscripts.output.indices();
     for i in subscripts.contraction_indices() {
         indices.push(i);

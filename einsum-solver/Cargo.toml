@@ -18,3 +18,4 @@ syn = "1.0.102"
 [dev-dependencies]
 insta = "1.21.1"
 maplit = "1.0.2"
+ndarray = "0.15.6"
