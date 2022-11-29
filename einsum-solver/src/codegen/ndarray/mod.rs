@@ -2,7 +2,7 @@
 
 pub mod naive;
 
-use crate::{namespace::Position, subscripts::Subscripts};
+use crate::subscripts::Subscripts;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 
@@ -15,7 +15,7 @@ pub fn function_definition(subscripts: &Subscripts, inner: TokenStream2) -> Toke
     let fn_name = format_ident!("{}", subscripts.escaped_ident());
     let n = subscripts.inputs.len();
 
-    let args: Vec<_> = (0..n).map(|n| Position::Arg(n)).collect();
+    let args = &subscripts.inputs;
     let storages: Vec<syn::Ident> = (0..n).map(|n| quote::format_ident!("S{}", n)).collect();
     let dims: Vec<syn::Path> = subscripts
         .inputs
