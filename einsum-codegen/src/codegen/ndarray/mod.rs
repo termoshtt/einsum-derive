@@ -11,6 +11,7 @@ fn dim(n: usize) -> syn::Path {
     syn::parse_quote! { ndarray::#ix }
 }
 
+/// Generate einsum function definition
 pub fn function_definition(subscripts: &Subscripts, inner: TokenStream2) -> TokenStream2 {
     let fn_name = format_ident!("{}", subscripts.escaped_ident());
     let n = subscripts.inputs.len();
@@ -40,7 +41,7 @@ pub fn function_definition(subscripts: &Subscripts, inner: TokenStream2) -> Toke
 
 #[cfg(test)]
 mod test {
-    use crate::{codegen::format_block, namespace::Namespace, subscripts::Subscripts};
+    use crate::{codegen::format_block, *};
 
     #[test]
     fn function_definition_snapshot() {

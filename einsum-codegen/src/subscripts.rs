@@ -1,5 +1,5 @@
 //! Einsum subscripts, e.g. `ij,jk->ik`
-use crate::{namespace::*, parser::*};
+use crate::{parser::*, *};
 use anyhow::Result;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens, TokenStreamExt};
@@ -117,7 +117,7 @@ impl Subscripts {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use einsum_solver::{subscripts::*, parser::*, namespace::*};
+    /// use einsum_codegen::{*, parser::*};
     ///
     /// let mut names = Namespace::init();
     ///
@@ -176,7 +176,7 @@ impl Subscripts {
     /// ```
     /// use std::str::FromStr;
     /// use maplit::btreeset;
-    /// use einsum_solver::{subscripts::Subscripts, namespace::*};
+    /// use einsum_codegen::*;
     ///
     /// let mut names = Namespace::init();
     ///
@@ -218,7 +218,7 @@ impl Subscripts {
     /// ```
     ///
     /// ```
-    /// use einsum_solver::{subscripts::*, namespace::*, parser::RawSubscript};
+    /// use einsum_codegen::{*, parser::RawSubscript};
     /// use std::str::FromStr;
     /// use maplit::btreeset;
     ///

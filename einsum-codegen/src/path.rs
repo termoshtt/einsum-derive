@@ -1,6 +1,6 @@
-//! Construct and execute contraction path
+//! Execution path
 
-use crate::{namespace::Namespace, subscripts::*};
+use crate::*;
 use anyhow::Result;
 use std::collections::BTreeSet;
 

@@ -1,6 +1,9 @@
 //! Generate einsum function with naive loop
 
-use crate::subscripts::Subscripts;
+#[cfg(doc)]
+use super::function_definition;
+
+use crate::Subscripts;
 
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -14,17 +17,6 @@ fn n_ident(i: char) -> syn::Ident {
     quote::format_ident!("n_{}", i)
 }
 
-/// Generate for loop
-///
-/// ```ignore
-/// for #index0 in 0..#n0 {
-///     for #index1 in 0..#n1 {
-///         for #index2 in 0..#n2 {
-///            #inner
-///         }
-///     }
-/// }
-/// ```
 fn contraction_for(indices: &[char], inner: TokenStream2) -> TokenStream2 {
     let mut tt = inner;
     for &i in indices.iter().rev() {
@@ -67,7 +59,7 @@ fn contraction_inner(subscripts: &Subscripts) -> TokenStream2 {
     }
 }
 
-/// Generate naive contraction loop, e.g.
+/// Generate naive contraction loop
 ///
 /// ```
 /// # use ndarray::Array2;
@@ -150,6 +142,7 @@ fn define_output_array(subscripts: &Subscripts) -> TokenStream2 {
     }
 }
 
+/// Actual component of einsum [function_definition]
 pub fn inner(subscripts: &Subscripts) -> TokenStream2 {
     let array_size = define_array_size(subscripts);
     let array_size_asserts = array_size_asserts(subscripts);
@@ -167,7 +160,7 @@ pub fn inner(subscripts: &Subscripts) -> TokenStream2 {
 
 #[cfg(test)]
 mod test {
-    use crate::{codegen::format_block, namespace::Namespace, subscripts::Subscripts};
+    use crate::{codegen::format_block, *};
 
     #[test]
     fn define_array_size() {

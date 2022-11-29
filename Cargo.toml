@@ -1,5 +1,5 @@
 [workspace]
 members = [
   "einsum-derive",
-  "einsum-solver",
+  "einsum-codegen",
 ]

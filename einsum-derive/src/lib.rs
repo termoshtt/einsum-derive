@@ -64,7 +64,7 @@
 //!   ```
 //!
 
-use einsum_solver::{codegen::ndarray::*, namespace::*, path::Path};
+use einsum_codegen::{codegen::ndarray::*, *};
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use proc_macro_error::{abort_call_site, proc_macro_error};
@@ -128,7 +128,7 @@ fn parse(input: TokenStream2) -> (String, Vec<syn::Expr>) {
 #[cfg(test)]
 mod test {
     use super::*;
-    use einsum_solver::codegen::format_block;
+    use einsum_codegen::codegen::format_block;
     use std::str::FromStr;
 
     #[test]

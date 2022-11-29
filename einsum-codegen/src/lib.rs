@@ -157,7 +157,12 @@
 //!
 
 pub mod codegen;
-pub mod namespace;
 pub mod parser;
-pub mod path;
-pub mod subscripts;
+
+mod namespace;
+mod path;
+mod subscripts;
+
+pub use namespace::*;
+pub use path::*;
+pub use subscripts::*;
