@@ -1,4 +1,68 @@
 //! proc-macro based einsum implementation
+//!
+//! ```
+//! use ndarray::array;
+//! use einsum_derive::einsum;
+//!
+//! let a = array![
+//!   [1.0, 2.0],
+//!   [3.0, 4.0]
+//! ];
+//! let b = array![
+//!   [1.0, 2.0],
+//!   [3.0, 4.0]
+//! ];
+//! let c = einsum!("ij,jk->ik", a, b);
+//! assert_eq!(c, array![
+//!   [6.0, 8.0],
+//!   [12.0, 16.0]
+//! ]);
+//! ```
+//!
+//! This proc-macro wil compile the input subscripts `"ij,jk->ik"`
+//! to generate Rust code executing corresponding operation.
+//!
+//! Examples
+//! ---------
+//!
+//! - `matmul3`
+//!
+//!   ```
+//!   use ndarray::array;
+//!   use einsum_derive::einsum;
+//!
+//!   let a = array![[1.0, 2.0], [3.0, 4.0]];
+//!   let b = array![[1.0, 2.0], [3.0, 4.0]];
+//!   let c = array![[1.0, 2.0], [3.0, 4.0]];
+//!   let d = einsum!("ij,jk,kl->il", a, b, c);
+//!   assert_eq!(d, array![[24.0, 32.0], [48.0, 64.0]]);
+//!   ```
+//!
+//! - Take diagonal elements
+//!
+//!   ```
+//!   use ndarray::array;
+//!   use einsum_derive::einsum;
+//!
+//!   let a = array![[1.0, 2.0], [3.0, 4.0]];
+//!   let d = einsum!("ii->i", a);
+//!   assert_eq!(d, array![1.0, 4.0]);
+//!   ```
+//!
+//! - If the subscripts and the number of input mismatches,
+//!   this raises compile error:
+//!
+//!   ```compile_fail
+//!   use ndarray::array;
+//!   use einsum_derive::einsum;
+//!
+//!   let a = array![
+//!     [1.0, 2.0],
+//!     [3.0, 4.0]
+//!   ];
+//!   let c = einsum!("ij,jk->ik", a /* needs one more arg */);
+//!   ```
+//!
 
 use einsum_solver::{codegen::ndarray::*, namespace::*, path::Path};
 use proc_macro::TokenStream;
@@ -8,57 +72,6 @@ use quote::quote;
 use syn::parse::Parser;
 
 /// proc-macro based einsum
-///
-/// ```
-/// use ndarray::array;
-/// use einsum_derive::einsum;
-///
-/// let a = array![
-///   [1.0, 2.0],
-///   [3.0, 4.0]
-/// ];
-/// let b = array![
-///   [1.0, 2.0],
-///   [3.0, 4.0]
-/// ];
-/// let c = einsum!("ij,jk->ik", a, b);
-/// assert_eq!(c, array![
-///   [6.0, 8.0],
-///   [12.0, 16.0]
-/// ]);
-/// ```
-///
-/// This proc-macro wil compile the input subscripts `"ij,jk->ik"`
-/// to generate Rust code executing corresponding operation.
-///
-/// Examples
-/// ---------
-///
-/// - Take diagonal elements
-///
-///   ```
-///   use ndarray::array;
-///   use einsum_derive::einsum;
-///
-///   let a = array![[1.0, 2.0], [3.0, 4.0]];
-///   let d = einsum!("ii->i", a);
-///   assert_eq!(d, array![1.0, 4.0]);
-///   ```
-///
-/// - If the subscripts and the number of input mismatches,
-///   this raises compile error:
-///
-///   ```compile_fail
-///   use ndarray::array;
-///   use einsum_derive::einsum;
-///
-///   let a = array![
-///     [1.0, 2.0],
-///     [3.0, 4.0]
-///   ];
-///   let c = einsum!("ij,jk->ik", a /* needs one more arg */);
-///   ```
-///
 #[proc_macro_error]
 #[proc_macro]
 pub fn einsum(input: TokenStream) -> TokenStream {
