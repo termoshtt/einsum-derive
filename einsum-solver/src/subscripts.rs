@@ -82,7 +82,10 @@ impl ToTokens for Subscripts {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let fn_name = format_ident!("{}", self.escaped_ident());
         let args = &self.inputs;
-        tokens.append_all(quote! { #fn_name(#(#args),*) });
+        let out = &self.output;
+        tokens.append_all(quote! {
+            let #out = #fn_name(#(#args),*);
+        });
     }
 }
 

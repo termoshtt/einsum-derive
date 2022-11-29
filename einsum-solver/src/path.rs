@@ -5,43 +5,63 @@ use anyhow::Result;
 use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Path(Vec<Subscripts>);
+pub struct Path {
+    original: Subscripts,
+    reduced_subscripts: Vec<Subscripts>,
+}
 
 impl std::ops::Deref for Path {
     type Target = [Subscripts];
     fn deref(&self) -> &[Subscripts] {
-        &self.0
+        &self.reduced_subscripts
     }
 }
 
 impl Path {
+    pub fn output(&self) -> &Subscript {
+        &self.original.output
+    }
+
+    pub fn num_args(&self) -> usize {
+        self.original.inputs.len()
+    }
+
     pub fn compute_order(&self) -> usize {
-        self.0
-            .iter()
-            .map(|ss| ss.compute_order())
-            .max()
-            .expect("self.0 never be empty")
+        compute_order(&self.reduced_subscripts)
     }
 
     pub fn memory_order(&self) -> usize {
-        self.0
-            .iter()
-            .map(|ss| ss.memory_order())
-            .max()
-            .expect("self.0 never be empty")
+        memory_order(&self.reduced_subscripts)
     }
 
     pub fn brute_force(indices: &str) -> Result<Self> {
         let mut names = Namespace::init();
         let subscripts = Subscripts::from_raw_indices(&mut names, indices)?;
-        brute_force_work(&mut names, subscripts)
+        Ok(Path {
+            original: subscripts.clone(),
+            reduced_subscripts: brute_force_work(&mut names, subscripts)?,
+        })
     }
 }
 
-fn brute_force_work(names: &mut Namespace, subscripts: Subscripts) -> Result<Path> {
+fn compute_order(ss: &[Subscripts]) -> usize {
+    ss.iter()
+        .map(|ss| ss.compute_order())
+        .max()
+        .expect("self.0 never be empty")
+}
+
+fn memory_order(ss: &[Subscripts]) -> usize {
+    ss.iter()
+        .map(|ss| ss.memory_order())
+        .max()
+        .expect("self.0 never be empty")
+}
+
+fn brute_force_work(names: &mut Namespace, subscripts: Subscripts) -> Result<Vec<Subscripts>> {
     if subscripts.inputs.len() <= 2 {
         // Cannot be factorized anymore
-        return Ok(Path(vec![subscripts]));
+        return Ok(vec![subscripts]);
     }
 
     let n = subscripts.inputs.len();
@@ -66,14 +86,14 @@ fn brute_force_work(names: &mut Namespace, subscripts: Subscripts) -> Result<Pat
             let mut names = names.clone();
             let (inner, outer) = subscripts.factorize(&mut names, pos)?;
             let mut sub = brute_force_work(&mut names, outer)?;
-            sub.0.insert(0, inner);
+            sub.insert(0, inner);
             Ok(sub)
         })
-        .collect::<Result<Vec<Path>>>()?;
-    subpaths.push(Path(vec![subscripts]));
+        .collect::<Result<Vec<_>>>()?;
+    subpaths.push(vec![subscripts]);
     Ok(subpaths
         .into_iter()
-        .min_by_key(|path| (path.compute_order(), path.memory_order()))
+        .min_by_key(|path| (compute_order(&path), memory_order(&path)))
         .expect("subpath never be empty"))
 }
 
