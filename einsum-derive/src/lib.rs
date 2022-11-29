@@ -1,9 +1,9 @@
 //! proc-macro based einsum implementation
 
-use einsum_solver::{codegen::ndarray::*, namespace::*, subscripts::Subscripts};
+use einsum_solver::{codegen::ndarray::*, namespace::*, path::Path};
 use proc_macro::TokenStream;
-use proc_macro2::{Span, TokenStream as TokenStream2};
-use proc_macro_error::{abort_call_site, proc_macro_error, OptionExt};
+use proc_macro2::TokenStream as TokenStream2;
+use proc_macro_error::proc_macro_error;
 use quote::quote;
 use syn::parse::Parser;
 
@@ -67,27 +67,23 @@ pub fn einsum(input: TokenStream) -> TokenStream {
 
 fn einsum2(input: TokenStream2) -> TokenStream2 {
     let (subscripts, args) = parse(input);
+    let arg_ident: Vec<_> = (0..args.len()).map(|i| Position::Arg(i)).collect();
+    let path = Path::brute_force(&subscripts).expect("Failed to construct execution path");
+    let fn_defs: Vec<_> = path
+        .iter()
+        .map(|ss| {
+            let inner = naive::inner(ss);
+            function_definition(ss, inner)
+        })
+        .collect();
+    let out = path.output();
 
-    // Validate subscripts
-    let mut names = Namespace::init();
-    let subscripts = Subscripts::from_raw_indices(&mut names, &subscripts)
-        .ok()
-        .expect_or_abort("Invalid subscripts");
-    if subscripts.inputs.len() != args.len() {
-        abort_call_site!(
-            "Argument number mismatch: subscripts ({}), args ({})",
-            subscripts.inputs.len(),
-            args.len()
-        );
-    }
-
-    let inner = naive::inner(&subscripts);
-    let fn_def = function_definition(&subscripts, inner);
-    let fn_name = syn::Ident::new(&subscripts.escaped_ident(), Span::call_site());
     quote! {
         {
-            #fn_def
-            #fn_name(#(#args),*)
+            #(#fn_defs)*
+            #(let #arg_ident = #args;)*
+            #(#path)*
+            #out
         }
     }
 }
@@ -162,7 +158,10 @@ mod test {
                 }
                 out0
             }
-            ij_jk__ik(a, b)
+            let arg0 = a;
+            let arg1 = b;
+            let out0 = ij_jk__ik(arg0, arg1);
+            out0
         }
         "###);
     }
