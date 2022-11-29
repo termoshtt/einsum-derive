@@ -81,11 +81,12 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
         );
     }
 
-    let einsum_fn = naive::define(&subscripts);
+    let inner = naive::inner(&subscripts);
+    let fn_def = function_definition(&subscripts, inner);
     let fn_name = syn::Ident::new(&subscripts.escaped_ident(), Span::call_site());
     quote! {
         {
-            #einsum_fn
+            #fn_def
             #fn_name(#(#args),*)
         }
     }
