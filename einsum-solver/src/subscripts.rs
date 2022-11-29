@@ -2,7 +2,7 @@
 use crate::{namespace::*, parser::*};
 use anyhow::Result;
 use proc_macro2::TokenStream;
-use quote::ToTokens;
+use quote::{format_ident, quote, ToTokens, TokenStreamExt};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt,
@@ -75,6 +75,14 @@ impl fmt::Debug for Subscripts {
 impl fmt::Display for Subscripts {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, f)
+    }
+}
+
+impl ToTokens for Subscripts {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let fn_name = format_ident!("{}", self.escaped_ident());
+        let args = &self.inputs;
+        tokens.append_all(quote! { #fn_name(#(#args),*) });
     }
 }
 

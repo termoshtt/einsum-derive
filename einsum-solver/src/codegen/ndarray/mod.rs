@@ -3,8 +3,8 @@
 pub mod naive;
 
 use crate::{namespace::Position, subscripts::Subscripts};
-use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::quote;
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{format_ident, quote};
 
 fn dim(n: usize) -> syn::Path {
     let ix = quote::format_ident!("Ix{}", n);
@@ -12,7 +12,7 @@ fn dim(n: usize) -> syn::Path {
 }
 
 pub fn function_definition(subscripts: &Subscripts, inner: TokenStream2) -> TokenStream2 {
-    let fn_name = syn::Ident::new(&subscripts.escaped_ident(), Span::call_site());
+    let fn_name = format_ident!("{}", subscripts.escaped_ident());
     let n = subscripts.inputs.len();
 
     let args: Vec<_> = (0..n).map(|n| Position::Arg(n)).collect();
