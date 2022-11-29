@@ -1,8 +1,8 @@
 //! Einsum subscripts, e.g. `ij,jk->ik`
-use crate::{namespace::*, parser::*};
+use crate::{parser::*, *};
 use anyhow::Result;
 use proc_macro2::TokenStream;
-use quote::ToTokens;
+use quote::{format_ident, quote, ToTokens, TokenStreamExt};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt,
@@ -78,6 +78,17 @@ impl fmt::Display for Subscripts {
     }
 }
 
+impl ToTokens for Subscripts {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let fn_name = format_ident!("{}", self.escaped_ident());
+        let args = &self.inputs;
+        let out = &self.output;
+        tokens.append_all(quote! {
+            let #out = #fn_name(#(#args),*);
+        });
+    }
+}
+
 impl Subscripts {
     /// Returns $\alpha$ if this subscripts requires $O(N^\alpha)$ floating point operation
     pub fn compute_order(&self) -> usize {
@@ -106,7 +117,7 @@ impl Subscripts {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use einsum_solver::{subscripts::*, parser::*, namespace::*};
+    /// use einsum_codegen::{*, parser::*};
     ///
     /// let mut names = Namespace::init();
     ///
@@ -165,7 +176,7 @@ impl Subscripts {
     /// ```
     /// use std::str::FromStr;
     /// use maplit::btreeset;
-    /// use einsum_solver::{subscripts::Subscripts, namespace::*};
+    /// use einsum_codegen::*;
     ///
     /// let mut names = Namespace::init();
     ///
@@ -207,7 +218,7 @@ impl Subscripts {
     /// ```
     ///
     /// ```
-    /// use einsum_solver::{subscripts::*, namespace::*, parser::RawSubscript};
+    /// use einsum_codegen::{*, parser::RawSubscript};
     /// use std::str::FromStr;
     /// use maplit::btreeset;
     ///
