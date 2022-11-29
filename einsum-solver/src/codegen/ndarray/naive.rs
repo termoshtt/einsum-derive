@@ -1,8 +1,25 @@
-use crate::{codegen::ndarray::ident::*, namespace::Position, subscripts::Subscripts};
+use crate::{namespace::Position, subscripts::Subscripts};
 
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
 use std::collections::HashSet;
+
+pub fn dim(n: usize) -> syn::Path {
+    let ix = quote::format_ident!("Ix{}", n);
+    syn::parse_quote! { ndarray::#ix }
+}
+
+pub fn index_ident(i: char) -> syn::Ident {
+    quote::format_ident!("{}", i)
+}
+
+pub fn n_ident(i: char) -> syn::Ident {
+    quote::format_ident!("n_{}", i)
+}
+
+pub fn n_each_ident(argc: usize, i: usize) -> syn::Ident {
+    quote::format_ident!("n_{}_{}", argc, i)
+}
 
 /// Generate for loop
 ///
@@ -121,7 +138,7 @@ pub fn array_size_asserts(subscripts: &Subscripts) -> TokenStream2 {
     quote! { #({ #tt })* }
 }
 
-fn def_output_array(subscripts: &Subscripts) -> TokenStream2 {
+fn define_output_array(subscripts: &Subscripts) -> TokenStream2 {
     // Define output array
     let output_ident = &subscripts.output;
     let mut n_output = Vec::new();
@@ -133,7 +150,7 @@ fn def_output_array(subscripts: &Subscripts) -> TokenStream2 {
     }
 }
 
-pub fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
+pub fn define(subscripts: &Subscripts) -> TokenStream2 {
     let fn_name = syn::Ident::new(&subscripts.escaped_ident(), Span::call_site());
     let n = subscripts.inputs.len();
 
@@ -150,7 +167,7 @@ pub fn def_einsum_fn(subscripts: &Subscripts) -> TokenStream2 {
     let array_size = define_array_size(subscripts);
     let array_size_asserts = array_size_asserts(subscripts);
     let output_ident = &subscripts.output;
-    let output_tt = def_output_array(subscripts);
+    let output_tt = define_output_array(subscripts);
     let contraction_tt = contraction(subscripts);
 
     quote! {
@@ -205,7 +222,7 @@ mod test {
     fn einsum_fn_snapshots() {
         let mut namespace = Namespace::init();
         let subscripts = Subscripts::from_raw_indices(&mut namespace, "ij,jk->ik").unwrap();
-        let tt = format_block(super::def_einsum_fn(&subscripts).to_string());
+        let tt = format_block(super::define(&subscripts).to_string());
         insta::assert_snapshot!(tt, @r###"
         fn ij_jk__ik<T, S0, S1>(
             arg0: ndarray::ArrayBase<S0, ndarray::Ix2>,
