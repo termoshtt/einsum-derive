@@ -1,4 +1,7 @@
 //! For [ndarray](https://crates.io/crates/ndarray) crate
 
-pub mod einsum_fn;
-pub mod ident;
+mod einsum_fn;
+mod ident;
+
+pub use einsum_fn::*;
+pub use ident::*;
