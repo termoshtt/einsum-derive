@@ -59,7 +59,7 @@ jobs:
       - run: |
           mkdir -p pages/
           mv target/doc pages/doc
-          mv target/bench pages/bench
+          mv target/criterion pages/bench
 
       # Upload target/doc directory
       - name: Upload artifact
