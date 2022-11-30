@@ -36,8 +36,8 @@ Architecture
 -------------
 |                | crates.io | docs.rs | GitHub Pages | Description |
 |:---------------|:---------:|:-------:|:------------:|:------------|
-| einsum-derive  | [![crate](https://img.shields.io/crates/v/einsum-derive.svg)](https://crates.io/crates/einsum-derive) | [![docs.rs](https://docs.rs/einsum-derive/badge.svg)](https://docs.rs/einsum-derive) | [![Pages](https://img.shields.io/badge/docs-main-blue)](https://termoshtt.github.io/einsum-derive/doc/einsum_derive/index.html) | A crate is proc-macro crate to provide above `einsum!` macro. |
-| einsum-codegen | [![crate](https://img.shields.io/crates/v/einsum-codegen.svg)](https://crates.io/crates/einsum-codegen) | [![docs.rs](https://docs.rs/einsum-codegen/badge.svg)](https://docs.rs/einsum-codegen) | [![Pages](https://img.shields.io/badge/docs-main-blue)](https://termoshtt.github.io/einsum-codegen/doc/einsum_codegen/index.html) | A crate implements parser for the einsum subscripts like `ij,jk->ik` and generates Rust code. |
+| einsum-derive  | [![crate](https://img.shields.io/crates/v/einsum-derive.svg)](https://crates.io/crates/einsum-derive) | [![docs.rs](https://docs.rs/einsum-derive/badge.svg)](https://docs.rs/einsum-derive) | [![Pages](https://img.shields.io/badge/docs-main-blue)](https://termoshtt.github.io/einsum-derive/doc/einsum_derive/index.html) | proc-macro crate to provide `einsum!` macro |
+| einsum-codegen | [![crate](https://img.shields.io/crates/v/einsum-codegen.svg)](https://crates.io/crates/einsum-codegen) | [![docs.rs](https://docs.rs/einsum-codegen/badge.svg)](https://docs.rs/einsum-codegen) | [![Pages](https://img.shields.io/badge/docs-main-blue)](https://termoshtt.github.io/einsum-codegen/doc/einsum_codegen/index.html) | Implements parser for the einsum subscripts and generates Rust code |
 
 Benchmark
 ----------
