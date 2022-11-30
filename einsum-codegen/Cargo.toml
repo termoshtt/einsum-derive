@@ -2,8 +2,15 @@
 name = "einsum-codegen"
 version = "0.1.0"
 edition = "2021"
+authors = ["Toshiki Teramura <toshiki.teramura@gmail.com>"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description   = "Helper for generating einsum implementation using proc-macro"
+documentation = "https://docs.rs/einsum-codegen/"
+repository    = "https://github.com/termoshtt/einsum-derive"
+keywords      = ["ndarray", "matrix", "einsum"]
+license       = "MIT OR Apache-2.0"
+readme        = "../README.md"
+categories    = ["algorithms", "science"]
 
 [dependencies]
 anyhow = "1.0.66"

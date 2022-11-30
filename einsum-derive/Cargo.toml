@@ -2,6 +2,15 @@
 name = "einsum-derive"
 version = "0.1.0"
 edition = "2021"
+authors = ["Toshiki Teramura <toshiki.teramura@gmail.com>"]
+
+description   = "Proc-macro based einsum implementation"
+documentation = "https://docs.rs/einsum-derive/"
+repository    = "https://github.com/termoshtt/einsum-derive"
+keywords      = ["ndarray", "matrix", "einsum", "proc-macro"]
+license       = "MIT OR Apache-2.0"
+readme        = "../README.md"
+categories    = ["algorithms", "science"]
 
 [lib]
 proc-macro = true
