@@ -41,15 +41,16 @@ Architecture
 
 Benchmark
 ----------
-[![bench](https://img.shields.io/badge/benchmark-main-orange)](https://termoshtt.github.io/einsum-derive/bench/report/index.html)
+[![bench](https://img.shields.io/badge/benchmark-main-yellow)](https://termoshtt.github.io/einsum-derive/bench/report/index.html)
 
 Benchmark with [criterion.rs](https://github.com/bheisler/criterion.rs) is running on GitHub Action on every commit on the main branch.
+The code is placed at [einsum-derive/benches/einsum.rs](./einsum-derive/benches/einsum.rs), and you can run it on your environment by
 
-Links
-------
-- [numpy.einsum](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html) is well-known einsum implementation in Python.
-- [opt_einsum](https://optimized-einsum.readthedocs.io/en/stable/) is an implementation for optimizing einsum computation for NumPy and other linear algebra packages.
-- [oracleofnj/einsum](https://github.com/oracleofnj/einsum) is a runtime-based implementation of einsum for rust-ndarray
+```shell
+cargo bench
+```
+
+and you will find its result on `target/criterion/report/index.html`.
 
 License
 --------
@@ -62,3 +63,9 @@ This project is licensed under either of
 - MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
 
 at your option.
+
+Links
+------
+- [numpy.einsum](https://numpy.org/doc/stable/reference/generated/numpy.einsum.html) is well-known einsum implementation in Python.
+- [opt_einsum](https://optimized-einsum.readthedocs.io/en/stable/) is an implementation for optimizing einsum computation for NumPy and other linear algebra packages.
+- [oracleofnj/einsum](https://github.com/oracleofnj/einsum) is a runtime-based implementation of einsum for rust-ndarray
