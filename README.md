@@ -29,10 +29,11 @@ to generate Rust code executing corresponding operation.
 
 Status / Roadmap
 -----------------
-- [x] Optimal contraction by memorizing partial summation to reduce computation order.
+- [x] [Optimal contraction by memorizing partial summation to reduce computation order.](https://github.com/termoshtt/einsum-derive/pull/18)
   - For example, three matrix multiplication `ij,jk,kl->il` is factorized into
     two successive einsum `ij,jk->ik` and `ik,kl->il`.
-- [ ] Call BLAS routines if possible
+- [ ] [Call BLAS routines if possible](https://github.com/termoshtt/einsum-derive/issues/22)
+- [ ] [Ellipsis `...` support](https://github.com/termoshtt/einsum-derive/issues/7)
 
 Architecture
 -------------
