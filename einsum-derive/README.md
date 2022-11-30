@@ -1,8 +1,5 @@
 einsum-derive
 ===============
-[![master](https://img.shields.io/badge/docs-master-blue)](https://termoshtt.github.io/einsum-derive/doc/einsum_derive/index.html)
-[![bench](https://img.shields.io/badge/benchmark-master-orange)](https://termoshtt.github.io/einsum-derive/bench/report/index.html)
-
 Proc-macro based einsum implementation for [ndarray](https://crates.io/crates/ndarray) crate
 
 ```rust
@@ -37,10 +34,16 @@ Status / Roadmap
 
 Architecture
 -------------
-- [einsum-derive](https://termoshtt.github.io/einsum-derive/doc/einsum_derive/index.html)
-  crate is proc-macro crate to provide above `einsum!` macro.
-- [einsum-codegen](https://termoshtt.github.io/einsum-derive/doc/einsum_codegen/index.html)
-  crate implements parser for the einsum subscripts like `ij,jk->ik` and generates Rust code.
+| crates.io | docs.rs | GitHub Pages | Description |
+|:---------:|:-------:|:------------:|:------------|
+| [![crate](https://img.shields.io/crates/v/einsum-derive.svg)](https://crates.io/crates/einsum-derive) | [![docs.rs](https://docs.rs/einsum-derive/badge.svg)](https://docs.rs/einsum-derive) | [![Pages](https://img.shields.io/badge/docs-main-blue)](https://termoshtt.github.io/einsum-derive/doc/einsum_derive/index.html) | A crate is proc-macro crate to provide above `einsum!` macro. |
+| [![crate](https://img.shields.io/crates/v/einsum-codegen.svg)](https://crates.io/crates/einsum-codegen) | [![docs.rs](https://docs.rs/einsum-codegen/badge.svg)](https://docs.rs/einsum-codegen) | [![Pages](https://img.shields.io/badge/docs-main-blue)](https://termoshtt.github.io/einsum-codegen/doc/einsum_codegen/index.html) | A crate implements parser for the einsum subscripts like `ij,jk->ik` and generates Rust code. |
+
+Benchmark
+----------
+[![bench](https://img.shields.io/badge/benchmark-main-orange)](https://termoshtt.github.io/einsum-derive/bench/report/index.html)
+
+Benchmark with [criterion.rs](https://github.com/bheisler/criterion.rs) is running on GitHub Action on every commit on the main branch.
 
 Links
 ------
