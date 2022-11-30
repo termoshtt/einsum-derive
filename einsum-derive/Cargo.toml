@@ -1,6 +1,6 @@
 [package]
 name = "einsum-derive"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 authors = ["Toshiki Teramura <toshiki.teramura@gmail.com>"]
 
@@ -30,7 +30,7 @@ trybuild = "1.0.71"
 
 [dependencies.einsum-codegen]
 path = "../einsum-codegen"
-version = "0.0.1"
+version = "0.1.0"
 
 [[bench]]
 name = "einsum"
