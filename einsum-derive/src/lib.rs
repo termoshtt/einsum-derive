@@ -1,4 +1,4 @@
-#![doc = include_str!("../../README.md")]
+#![doc = include_str!("../README.md")]
 
 use einsum_codegen::{codegen::ndarray::*, *};
 use proc_macro::TokenStream;
