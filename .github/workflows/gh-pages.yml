@@ -48,16 +48,25 @@ jobs:
           command: doc
           args: --no-deps
 
+      # Generate benchmark report
+      - uses: actions-rs/cargo@v1
+        with:
+          command: bench
+
       - name: Setup Pages
         uses: actions/configure-pages@v2
+
+      - run: |
+          mkdir -p pages/
+          mv target/doc pages/doc
+          mv target/bench pages/bench
 
       # Upload target/doc directory
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
-          path: 'target/doc'
+          path: pages/
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v1
-
