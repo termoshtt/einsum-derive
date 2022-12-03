@@ -318,8 +318,30 @@ impl Subscripts {
     /// assert_eq!(ss1.to_string(), "ab,bc,cd->ad | arg0,arg1,arg2->out0");
     /// assert_eq!(ss2.to_string(), "ab,bc,cd->ad | arg0,arg1,arg2->out0");
     /// ```
-    pub fn remap_indices(&mut self) -> Self {
-        todo!()
+    pub fn remap_indices(&mut self) {
+        let mut map: BTreeMap<char, u32> = BTreeMap::new();
+        let mut update = |raw: &mut RawSubscript| match raw {
+            RawSubscript::Indices(indices) => {
+                for i in indices {
+                    if !map.contains_key(i) {
+                        map.insert(*i, 'a' as u32 + map.len() as u32);
+                    }
+                    *i = char::from_u32(map[i]).unwrap();
+                }
+            }
+            RawSubscript::Ellipsis { start, end } => {
+                for i in start.iter_mut().chain(end.iter_mut()) {
+                    if !map.contains_key(i) {
+                        map.insert(*i, 'a' as u32 + map.len() as u32);
+                    }
+                    *i = char::from_u32(map[i]).unwrap();
+                }
+            }
+        };
+        for input in &mut self.inputs {
+            update(&mut input.raw);
+        }
+        update(&mut self.output.raw)
     }
 }
 
