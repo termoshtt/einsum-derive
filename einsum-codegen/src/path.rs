@@ -102,28 +102,28 @@ mod test {
     use super::*;
 
     #[test]
-    fn brute_force_ij_jk() -> Result<()> {
-        let path = Path::brute_force("ij,jk->ik")?;
+    fn brute_force_ab_bc() -> Result<()> {
+        let path = Path::brute_force("ab,bc->ac")?;
         assert_eq!(path.len(), 1);
-        assert_eq!(path[0].to_string(), "ij,jk->ik | arg0,arg1->out0");
+        assert_eq!(path[0].to_string(), "ab,bc->ac | arg0,arg1->out0");
         Ok(())
     }
 
     #[test]
-    fn brute_force_ij_jk_kl_l() -> Result<()> {
-        let path = Path::brute_force("ij,jk,kl,l->i")?;
+    fn brute_force_ab_bc_cd_d() -> Result<()> {
+        let path = Path::brute_force("ab,bc,cd,d->a")?;
         assert_eq!(path.len(), 3);
-        assert_eq!(path[0].to_string(), "kl,l->k | arg2,arg3->out1");
-        assert_eq!(path[1].to_string(), "k,jk->j | out1,arg1->out2");
-        assert_eq!(path[2].to_string(), "j,ij->i | out2,arg0->out0");
+        assert_eq!(path[0].to_string(), "ab,b->a | arg2,arg3->out1");
+        assert_eq!(path[1].to_string(), "a,ba->b | out1,arg1->out2");
+        assert_eq!(path[2].to_string(), "a,ba->b | out2,arg0->out0");
         Ok(())
     }
 
     #[test]
-    fn brute_force_i_i_i() -> Result<()> {
-        let path = Path::brute_force("i,i,i->")?;
+    fn brute_force_a_a_a() -> Result<()> {
+        let path = Path::brute_force("a,a,a->")?;
         assert_eq!(path.len(), 1);
-        assert_eq!(path[0].to_string(), "i,i,i-> | arg0,arg1,arg2->out0");
+        assert_eq!(path[0].to_string(), "a,a,a-> | arg0,arg1,arg2->out0");
         Ok(())
     }
 }

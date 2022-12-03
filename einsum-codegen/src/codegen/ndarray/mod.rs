@@ -50,7 +50,7 @@ mod test {
         let inner = quote::quote! { todo!() };
         let tt = format_block(super::function_definition(&subscripts, inner).to_string());
         insta::assert_snapshot!(tt, @r###"
-        fn ij_jk__ik<T, S0, S1>(
+        fn ab_bc__ac<T, S0, S1>(
             arg0: ndarray::ArrayBase<S0, ndarray::Ix2>,
             arg1: ndarray::ArrayBase<S1, ndarray::Ix2>,
         ) -> ndarray::Array<T, ndarray::Ix2>
