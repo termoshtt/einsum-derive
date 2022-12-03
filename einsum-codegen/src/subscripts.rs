@@ -299,6 +299,28 @@ impl Subscripts {
         write!(out, "_{}", self.output.raw).unwrap();
         out
     }
+
+    /// Remap indices as starting from `a` to distinguish same subscripts, e.g. `i,i->` and `j,j->`
+    ///
+    /// ```
+    /// use einsum_codegen::{*, parser::RawSubscript};
+    ///
+    /// let mut names = Namespace::init();
+    /// let mut ss1 = Subscripts::from_raw_indices(&mut names, "ij,jk,kl->il").unwrap();
+    /// ss1.remap_indices();
+    ///
+    /// // reset namespace
+    /// let mut names = Namespace::init();
+    /// let mut ss2 = Subscripts::from_raw_indices(&mut names, "xz,zy,yw->xw").unwrap();
+    /// ss2.remap_indices();
+    ///
+    /// assert_eq!(ss1, ss2);
+    /// assert_eq!(ss1.to_string(), "ab,bc,cd->ad | arg0,arg1,arg2->out0");
+    /// assert_eq!(ss2.to_string(), "ab,bc,cd->ad | arg0,arg1,arg2->out0");
+    /// ```
+    pub fn remap_indices(&mut self) -> Self {
+        todo!()
+    }
 }
 
 fn count_indices(inputs: &[Subscript]) -> BTreeMap<char, u32> {
