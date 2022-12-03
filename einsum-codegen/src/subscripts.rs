@@ -41,7 +41,23 @@ impl ToTokens for Subscript {
 }
 
 #[cfg_attr(doc, katexit::katexit)]
-/// Einsum subscripts with tensor names, e.g. `ij,jk->ik | arg0 arg1 -> out`
+/// Einsum subscripts with tensor names, e.g. `ab,bc->ac | arg0,arg1->out0`
+///
+/// Indices are remapped as starting from `a` to distinguish same subscripts, e.g. `i,i->` and `j,j->`
+///
+/// ```
+/// use einsum_codegen::{*, parser::RawSubscript};
+///
+/// let mut names = Namespace::init();
+/// let mut ss1 = Subscripts::from_raw_indices(&mut names, "ij,jk,kl->il").unwrap();
+///
+/// let mut names = Namespace::init();
+/// let mut ss2 = Subscripts::from_raw_indices(&mut names, "xz,zy,yw->xw").unwrap();
+///
+/// assert_eq!(ss1, ss2);
+/// assert_eq!(ss1.to_string(), "ab,bc,cd->ad | arg0,arg1,arg2->out0");
+/// assert_eq!(ss2.to_string(), "ab,bc,cd->ad | arg0,arg1,arg2->out0");
+/// ```
 #[derive(Clone, PartialEq, Eq)]
 pub struct Subscripts {
     /// Input subscript, `ij` and `jk`
@@ -144,13 +160,15 @@ impl Subscripts {
             .collect();
         let position = names.new_ident();
         if let Some(output) = raw.output {
-            return Subscripts {
+            let mut cand = Subscripts {
                 inputs,
                 output: Subscript {
                     raw: output,
                     position,
                 },
             };
+            cand.remap_indices();
+            return cand;
         }
 
         let count = count_indices(&inputs);
@@ -163,7 +181,9 @@ impl Subscripts {
             ),
             position,
         };
-        Subscripts { inputs, output }
+        let mut cand = Subscripts { inputs, output };
+        cand.remap_indices();
+        cand
     }
 
     pub fn from_raw_indices(names: &mut Namespace, indices: &str) -> Result<Self> {
@@ -272,16 +292,18 @@ impl Subscripts {
             position: names.new_ident(),
         };
         outer_inputs.insert(0, out.clone());
-        Ok((
-            Subscripts {
-                inputs: inner_inputs,
-                output: out,
-            },
-            Subscripts {
-                inputs: outer_inputs,
-                output: self.output.clone(),
-            },
-        ))
+
+        let mut inner = Subscripts {
+            inputs: inner_inputs,
+            output: out,
+        };
+        let mut outer = Subscripts {
+            inputs: outer_inputs,
+            output: self.output.clone(),
+        };
+        inner.remap_indices();
+        outer.remap_indices();
+        Ok((inner, outer))
     }
 
     /// Escaped subscript for identifier
@@ -300,25 +322,7 @@ impl Subscripts {
         out
     }
 
-    /// Remap indices as starting from `a` to distinguish same subscripts, e.g. `i,i->` and `j,j->`
-    ///
-    /// ```
-    /// use einsum_codegen::{*, parser::RawSubscript};
-    ///
-    /// let mut names = Namespace::init();
-    /// let mut ss1 = Subscripts::from_raw_indices(&mut names, "ij,jk,kl->il").unwrap();
-    /// ss1.remap_indices();
-    ///
-    /// // reset namespace
-    /// let mut names = Namespace::init();
-    /// let mut ss2 = Subscripts::from_raw_indices(&mut names, "xz,zy,yw->xw").unwrap();
-    /// ss2.remap_indices();
-    ///
-    /// assert_eq!(ss1, ss2);
-    /// assert_eq!(ss1.to_string(), "ab,bc,cd->ad | arg0,arg1,arg2->out0");
-    /// assert_eq!(ss2.to_string(), "ab,bc,cd->ad | arg0,arg1,arg2->out0");
-    /// ```
-    pub fn remap_indices(&mut self) {
+    fn remap_indices(&mut self) {
         let mut map: BTreeMap<char, u32> = BTreeMap::new();
         let mut update = |raw: &mut RawSubscript| match raw {
             RawSubscript::Indices(indices) => {
