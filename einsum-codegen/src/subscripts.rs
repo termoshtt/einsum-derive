@@ -41,7 +41,23 @@ impl ToTokens for Subscript {
 }
 
 #[cfg_attr(doc, katexit::katexit)]
-/// Einsum subscripts with tensor names, e.g. `ij,jk->ik | arg0 arg1 -> out`
+/// Einsum subscripts with tensor names, e.g. `ab,bc->ac | arg0,arg1->out0`
+///
+/// Indices are remapped as starting from `a` to distinguish same subscripts, e.g. `i,i->` and `j,j->`
+///
+/// ```
+/// use einsum_codegen::{*, parser::RawSubscript};
+///
+/// let mut names = Namespace::init();
+/// let mut ss1 = Subscripts::from_raw_indices(&mut names, "ij,jk,kl->il").unwrap();
+///
+/// let mut names = Namespace::init();
+/// let mut ss2 = Subscripts::from_raw_indices(&mut names, "xz,zy,yw->xw").unwrap();
+///
+/// assert_eq!(ss1, ss2);
+/// assert_eq!(ss1.to_string(), "ab,bc,cd->ad | arg0,arg1,arg2->out0");
+/// assert_eq!(ss2.to_string(), "ab,bc,cd->ad | arg0,arg1,arg2->out0");
+/// ```
 #[derive(Clone, PartialEq, Eq)]
 pub struct Subscripts {
     /// Input subscript, `ij` and `jk`
@@ -119,17 +135,17 @@ impl Subscripts {
     /// use std::str::FromStr;
     /// use einsum_codegen::{*, parser::*};
     ///
-    /// let mut names = Namespace::init();
-    ///
     /// // Infer output subscripts for implicit mode
-    /// let raw = RawSubscripts::from_str("ij,jk").unwrap();
+    /// let mut names = Namespace::init();
+    /// let raw = RawSubscripts::from_str("ab,bc").unwrap();
     /// let subscripts = Subscripts::from_raw(&mut names, raw);
-    /// assert_eq!(subscripts.output.raw(), &['i', 'k']);
+    /// assert_eq!(subscripts.to_string(), "ab,bc->ac | arg0,arg1->out0");
     ///
     /// // Reordered alphabetically
-    /// let raw = RawSubscripts::from_str("ji").unwrap();
+    /// let mut names = Namespace::init(); // reset namespace
+    /// let raw = RawSubscripts::from_str("ba").unwrap();
     /// let subscripts = Subscripts::from_raw(&mut names, raw);
-    /// assert_eq!(subscripts.output.raw(), &['i', 'j']);
+    /// assert_eq!(subscripts.to_string(), "ab->ba | arg0->out0");
     /// ```
     ///
     pub fn from_raw(names: &mut Namespace, raw: RawSubscripts) -> Self {
@@ -144,13 +160,15 @@ impl Subscripts {
             .collect();
         let position = names.new_ident();
         if let Some(output) = raw.output {
-            return Subscripts {
+            let mut cand = Subscripts {
                 inputs,
                 output: Subscript {
                     raw: output,
                     position,
                 },
             };
+            cand.remap_indices();
+            return cand;
         }
 
         let count = count_indices(&inputs);
@@ -163,7 +181,9 @@ impl Subscripts {
             ),
             position,
         };
-        Subscripts { inputs, output }
+        let mut cand = Subscripts { inputs, output };
+        cand.remap_indices();
+        cand
     }
 
     pub fn from_raw_indices(names: &mut Namespace, indices: &str) -> Result<Self> {
@@ -181,15 +201,15 @@ impl Subscripts {
     /// let mut names = Namespace::init();
     ///
     /// // Matrix multiplication AB
-    /// let subscripts = Subscripts::from_raw_indices(&mut names, "ij,jk->ik").unwrap();
-    /// assert_eq!(subscripts.contraction_indices(), btreeset!{'j'});
+    /// let subscripts = Subscripts::from_raw_indices(&mut names, "ab,bc->ac").unwrap();
+    /// assert_eq!(subscripts.contraction_indices(), btreeset!{'b'});
     ///
     /// // Reduce all Tr(AB)
-    /// let subscripts = Subscripts::from_raw_indices(&mut names, "ij,ji->").unwrap();
-    /// assert_eq!(subscripts.contraction_indices(), btreeset!{'i', 'j'});
+    /// let subscripts = Subscripts::from_raw_indices(&mut names, "ab,ba->").unwrap();
+    /// assert_eq!(subscripts.contraction_indices(), btreeset!{'a', 'b'});
     ///
     /// // Take diagonal elements
-    /// let subscripts = Subscripts::from_raw_indices(&mut names, "ii->i").unwrap();
+    /// let subscripts = Subscripts::from_raw_indices(&mut names, "aa->a").unwrap();
     /// assert_eq!(subscripts.contraction_indices(), btreeset!{});
     /// ```
     pub fn contraction_indices(&self) -> BTreeSet<char> {
@@ -207,15 +227,18 @@ impl Subscripts {
     /// Factorize subscripts
     ///
     /// ```text
-    /// ij,jk,kl->il | arg0 arg1 arg2 -> out0
+    /// ab,bc,cd->ad | arg0,arg1,arg2->out0
     /// ```
     ///
     /// will be factorized with `(arg0, arg1)` into
     ///
     /// ```text
-    /// ij,jk->ik | arg0 arg1 -> out1
-    /// ik,kl->il | out1 arg2 -> out0
+    /// ab,bc->ac | arg0,arg1 -> out1
+    /// ab,bc->ac | out1 arg2 -> out0
     /// ```
+    ///
+    /// Be sure that the indices of `out1` in the first step `ac` is renamed
+    /// into `ab` in the second step.
     ///
     /// ```
     /// use einsum_codegen::{*, parser::RawSubscript};
@@ -223,11 +246,14 @@ impl Subscripts {
     /// use maplit::btreeset;
     ///
     /// let mut names = Namespace::init();
-    /// let base = Subscripts::from_raw_indices(&mut names, "ij,jk,kl->il").unwrap();
+    /// let base = Subscripts::from_raw_indices(&mut names, "ab,bc,cd->ad").unwrap();
     ///
-    /// let (ijjk, ikkl) = base.factorize(&mut names,
+    /// let (step1, step2) = base.factorize(&mut names,
     ///   btreeset!{ Position::Arg(0), Position::Arg(1) }
     /// ).unwrap();
+    ///
+    /// assert_eq!(step1.to_string(), "ab,bc->ac | arg0,arg1->out1");
+    /// assert_eq!(step2.to_string(), "ab,bc->ac | out1,arg2->out0");
     /// ```
     pub fn factorize(
         &self,
@@ -272,16 +298,18 @@ impl Subscripts {
             position: names.new_ident(),
         };
         outer_inputs.insert(0, out.clone());
-        Ok((
-            Subscripts {
-                inputs: inner_inputs,
-                output: out,
-            },
-            Subscripts {
-                inputs: outer_inputs,
-                output: self.output.clone(),
-            },
-        ))
+
+        let mut inner = Subscripts {
+            inputs: inner_inputs,
+            output: out,
+        };
+        let mut outer = Subscripts {
+            inputs: outer_inputs,
+            output: self.output.clone(),
+        };
+        inner.remap_indices();
+        outer.remap_indices();
+        Ok((inner, outer))
     }
 
     /// Escaped subscript for identifier
@@ -298,6 +326,32 @@ impl Subscripts {
         }
         write!(out, "_{}", self.output.raw).unwrap();
         out
+    }
+
+    fn remap_indices(&mut self) {
+        let mut map: BTreeMap<char, u32> = BTreeMap::new();
+        let mut update = |raw: &mut RawSubscript| match raw {
+            RawSubscript::Indices(indices) => {
+                for i in indices {
+                    if !map.contains_key(i) {
+                        map.insert(*i, 'a' as u32 + map.len() as u32);
+                    }
+                    *i = char::from_u32(map[i]).unwrap();
+                }
+            }
+            RawSubscript::Ellipsis { start, end } => {
+                for i in start.iter_mut().chain(end.iter_mut()) {
+                    if !map.contains_key(i) {
+                        map.insert(*i, 'a' as u32 + map.len() as u32);
+                    }
+                    *i = char::from_u32(map[i]).unwrap();
+                }
+            }
+        };
+        for input in &mut self.inputs {
+            update(&mut input.raw);
+        }
+        update(&mut self.output.raw)
     }
 }
 
@@ -319,19 +373,19 @@ mod tests {
     fn escaped_ident() {
         let mut names = Namespace::init();
 
-        let subscripts = Subscripts::from_raw_indices(&mut names, "ij,jk->ik").unwrap();
-        assert_eq!(subscripts.escaped_ident(), "ij_jk__ik");
+        let subscripts = Subscripts::from_raw_indices(&mut names, "ab,bc->ac").unwrap();
+        assert_eq!(subscripts.escaped_ident(), "ab_bc__ac");
 
         // implicit mode
-        let subscripts = Subscripts::from_raw_indices(&mut names, "ij,jk").unwrap();
-        assert_eq!(subscripts.escaped_ident(), "ij_jk__ik");
+        let subscripts = Subscripts::from_raw_indices(&mut names, "ab,bc").unwrap();
+        assert_eq!(subscripts.escaped_ident(), "ab_bc__ac");
 
         // output scalar
-        let subscripts = Subscripts::from_raw_indices(&mut names, "i,i").unwrap();
-        assert_eq!(subscripts.escaped_ident(), "i_i__");
+        let subscripts = Subscripts::from_raw_indices(&mut names, "a,a").unwrap();
+        assert_eq!(subscripts.escaped_ident(), "a_a__");
 
         // ellipsis
-        let subscripts = Subscripts::from_raw_indices(&mut names, "ij...,jk...->ik...").unwrap();
-        assert_eq!(subscripts.escaped_ident(), "ij____jk_____ik___");
+        let subscripts = Subscripts::from_raw_indices(&mut names, "ab...,bc...->ac...").unwrap();
+        assert_eq!(subscripts.escaped_ident(), "ab____bc_____ac___");
     }
 }

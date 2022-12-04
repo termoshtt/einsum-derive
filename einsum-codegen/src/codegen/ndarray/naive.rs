@@ -168,8 +168,8 @@ mod test {
         let subscripts = Subscripts::from_raw_indices(&mut namespace, "ij,jk->ik").unwrap();
         let tt = format_block(super::define_array_size(&subscripts).to_string());
         insta::assert_snapshot!(tt, @r###"
-        let (n_i, n_j) = arg0.dim();
-        let (_, n_k) = arg1.dim();
+        let (n_a, n_b) = arg0.dim();
+        let (_, n_c) = arg1.dim();
         "###);
     }
 
@@ -179,10 +179,10 @@ mod test {
         let subscripts = Subscripts::from_raw_indices(&mut namespace, "ij,jk->ik").unwrap();
         let tt = format_block(super::contraction(&subscripts).to_string());
         insta::assert_snapshot!(tt, @r###"
-        for i in 0..n_i {
-            for k in 0..n_k {
-                for j in 0..n_j {
-                    out0[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
+        for a in 0..n_a {
+            for c in 0..n_c {
+                for b in 0..n_b {
+                    out0[(a, c)] = arg0[(a, b)] * arg1[(b, c)];
                 }
             }
         }
@@ -195,23 +195,23 @@ mod test {
         let subscripts = Subscripts::from_raw_indices(&mut namespace, "ij,jk->ik").unwrap();
         let tt = format_block(super::inner(&subscripts).to_string());
         insta::assert_snapshot!(tt, @r###"
-        let (n_i, n_j) = arg0.dim();
-        let (_, n_k) = arg1.dim();
+        let (n_a, n_b) = arg0.dim();
+        let (_, n_c) = arg1.dim();
         {
             let (n_0, n_1) = arg0.dim();
-            assert_eq!(n_0, n_i);
-            assert_eq!(n_1, n_j);
+            assert_eq!(n_0, n_a);
+            assert_eq!(n_1, n_b);
         }
         {
             let (n_0, n_1) = arg1.dim();
-            assert_eq!(n_0, n_j);
-            assert_eq!(n_1, n_k);
+            assert_eq!(n_0, n_b);
+            assert_eq!(n_1, n_c);
         }
-        let mut out0 = ndarray::Array::zeros((n_i, n_k));
-        for i in 0..n_i {
-            for k in 0..n_k {
-                for j in 0..n_j {
-                    out0[(i, k)] = arg0[(i, j)] * arg1[(j, k)];
+        let mut out0 = ndarray::Array::zeros((n_a, n_c));
+        for a in 0..n_a {
+            for c in 0..n_c {
+                for b in 0..n_b {
+                    out0[(a, c)] = arg0[(a, b)] * arg1[(b, c)];
                 }
             }
         }
