@@ -4,12 +4,11 @@
 //! and corresponding EBNF-like schema are written in each document page.
 //!
 
-use anyhow::{bail, Error, Result};
+use crate::{RawSubscript, RawSubscripts};
 use nom::{
     bytes::complete::*, character::complete::*, combinator::*, multi::*, sequence::*, IResult,
     Parser,
 };
-use std::fmt;
 
 /// index = `a` | `b` | `c` | `d` | `e` | `f` | `g` | `h` | `i` | `j` | `k` | `l` |`m` | `n` | `o` | `p` | `q` | `r` | `s` | `t` | `u` | `v` | `w` | `x` |`y` | `z`;
 pub fn index(input: &str) -> IResult<&str, char> {
@@ -31,66 +30,6 @@ pub fn subscript(input: &str) -> IResult<&str, RawSubscript> {
         Ok((input, RawSubscript::Ellipsis { start, end }))
     } else {
         Ok((input, RawSubscript::Indices(start)))
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum RawSubscript {
-    /// Indices without ellipsis, e.g. `ijk`
-    Indices(Vec<char>),
-    /// Indices with ellipsis, e.g. `i...j`
-    Ellipsis { start: Vec<char>, end: Vec<char> },
-}
-
-impl<const N: usize> PartialEq<[char; N]> for RawSubscript {
-    fn eq(&self, other: &[char; N]) -> bool {
-        match self {
-            RawSubscript::Indices(indices) => indices.eq(other),
-            _ => false,
-        }
-    }
-}
-
-impl fmt::Display for RawSubscript {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RawSubscript::Indices(indices) => {
-                for i in indices {
-                    write!(f, "{}", i)?;
-                }
-            }
-            RawSubscript::Ellipsis { start, end } => {
-                for i in start {
-                    write!(f, "{}", i)?;
-                }
-                write!(f, "___")?;
-                for i in end {
-                    write!(f, "{}", i)?;
-                }
-            }
-        }
-        Ok(())
-    }
-}
-
-/// Einsum subscripts, e.g. `ij,jk->ik`
-#[derive(Debug, PartialEq, Eq)]
-pub struct RawSubscripts {
-    /// Input subscript, `ij` and `jk`
-    pub inputs: Vec<RawSubscript>,
-    /// Output subscript. This may be empty for "implicit mode".
-    pub output: Option<RawSubscript>,
-}
-
-impl std::str::FromStr for RawSubscripts {
-    type Err = Error;
-    fn from_str(input: &str) -> Result<Self> {
-        use nom::Finish;
-        if let Ok((_, ss)) = subscripts(input).finish() {
-            Ok(ss)
-        } else {
-            bail!("Invalid subscripts: {}", input);
-        }
     }
 }
 
