@@ -27,7 +27,7 @@ fn einsum2(input: TokenStream2) -> TokenStream2 {
                 None
             } else {
                 defined.insert(ss.escaped_ident());
-                let inner = naive::inner(ss);
+                let inner = naive(ss);
                 Some(function_definition(ss, inner))
             }
         })
